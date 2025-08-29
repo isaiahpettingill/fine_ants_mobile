@@ -118,72 +118,81 @@ class _AccountEditPageState extends State<AccountEditPage> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(widget.initial == null ? 'New Account' : 'Edit Account')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 16),
-            _AccountTypeField(controller: _accountType),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Text('Color', style: theme.textTheme.titleMedium),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: AccountColorSelector(
-                    color: _color,
-                    onChanged: (c) => setState(() => _color = c.withValues(alpha: 1.0)),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final iconHeight = (constraints.maxHeight * 0.36).clamp(200.0, 420.0);
+            final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _name,
+                    decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
                   ),
-                ),
-              ],
-            ),
-            Text('Icon', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            // Fill remaining vertical space for the icon selector.
-            Expanded(
-              child: AccountIconSelector(
-                icons: kAccountIconChoices,
-                groups: kAccountIconGroups,
-                selectedKey: _icon,
-                onChanged: (key) => setState(() => _icon = key),
-                maxItemExtent: 88,
+                  const SizedBox(height: 16),
+                  _AccountTypeField(controller: _accountType),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Text('Color', style: theme.textTheme.titleMedium),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AccountColorSelector(
+                          color: _color,
+                          onChanged: (c) => setState(() => _color = c.withValues(alpha: 1.0)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Icon', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: iconHeight,
+                    child: AccountIconSelector(
+                      icons: kAccountIconChoices,
+                      groups: kAccountIconGroups,
+                      selectedKey: _icon,
+                      onChanged: (key) => setState(() => _icon = key),
+                      maxItemExtent: 88,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _CurrencySelector(
+                    currencies: _currencies,
+                    loading: _loadingCurrencies,
+                    value: _currencyCode,
+                    onChanged: (v) => setState(() => _currencyCode = v),
+                    onCreate: (newCurrency) {
+                      final repo = CurrenciesRepository(widget.repo.db);
+                      repo.create(
+                        code: newCurrency.code,
+                        symbol: newCurrency.symbol,
+                        symbolPosition: newCurrency.symbolPosition,
+                        decimalPlaces: newCurrency.decimalPlaces,
+                      );
+                      final list = repo.listAll();
+                      setState(() {
+                        _currencies = list;
+                        _currencyCode = newCurrency.code;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: Text(widget.initial == null ? 'Create' : 'Save'),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            _CurrencySelector(
-              currencies: _currencies,
-              loading: _loadingCurrencies,
-              value: _currencyCode,
-              onChanged: (v) => setState(() => _currencyCode = v),
-              onCreate: (newCurrency) {
-                final repo = CurrenciesRepository(widget.repo.db);
-                repo.create(
-                  code: newCurrency.code,
-                  symbol: newCurrency.symbol,
-                  symbolPosition: newCurrency.symbolPosition,
-                  decimalPlaces: newCurrency.decimalPlaces,
-                );
-                final list = repo.listAll();
-                setState(() {
-                  _currencies = list;
-                  _currencyCode = newCurrency.code;
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _saving ? null : _save,
-                child: Text(widget.initial == null ? 'Create' : 'Save'),
-              ),
-            )
-          ],
+            );
+          },
         ),
       ),
     );

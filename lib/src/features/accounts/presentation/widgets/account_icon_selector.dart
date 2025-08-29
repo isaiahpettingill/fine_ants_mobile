@@ -78,7 +78,7 @@ class AccountIconSelector extends StatelessWidget {
   }
 }
 
-class _Grid extends StatelessWidget {
+class _Grid extends StatefulWidget {
   const _Grid({
     required this.entries,
     required this.selectedKey,
@@ -92,14 +92,37 @@ class _Grid extends StatelessWidget {
   final double maxItemExtent;
 
   @override
+  State<_Grid> createState() => _GridState();
+}
+
+class _GridState extends State<_Grid> {
+  late final ScrollController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final entries = widget.entries;
+    final selectedKey = widget.selectedKey;
     return Scrollbar(
+      controller: _controller,
       thumbVisibility: true,
       child: GridView.builder(
+        controller: _controller,
         padding: EdgeInsets.zero,
         gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: maxItemExtent,
+          maxCrossAxisExtent: widget.maxItemExtent,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
           childAspectRatio: 1,
@@ -118,7 +141,7 @@ class _Grid extends StatelessWidget {
               message: entry.key,
               child: InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => onChanged(entry.key),
+                onTap: () => widget.onChanged(entry.key),
                 child: Container(
                   decoration: BoxDecoration(
                     border: Border.all(

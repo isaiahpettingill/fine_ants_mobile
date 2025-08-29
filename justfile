@@ -4,3 +4,6 @@ check:
 
 test:
     fvm flutter test
+
+fix:
+    fvm dart fix --apply

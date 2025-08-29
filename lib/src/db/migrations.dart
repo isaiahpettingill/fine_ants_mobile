@@ -171,3 +171,113 @@ class AddCurrencyToAccountsMigration implements Migration {
     }
   }
 }
+
+class SeedDefaultTransactionTypesMigration implements Migration {
+  @override
+  int get id => 8;
+
+  @override
+  String get name => 'seed_default_transaction_types';
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    void insert(String name, String color, String iconKind, String iconValue, String appliesTo) {
+      db.execute(
+        'INSERT OR IGNORE INTO transaction_types (name, color, icon_kind, icon_value, applies_to) VALUES (?, ?, ?, ?, ?)',
+        [name, color, iconKind, iconValue, appliesTo],
+      );
+    }
+
+    // Common outbound (expenses)
+    insert('Groceries', '#4CAF50', 'material', 'shopping_cart', 'outbound');
+    insert('Rent', '#9C27B0', 'material', 'home', 'outbound');
+    insert('Utilities', '#03A9F4', 'material', 'bolt', 'outbound');
+    insert('Dining', '#FF7043', 'material', 'restaurant', 'outbound');
+    insert('Transport', '#795548', 'material', 'directions_car', 'outbound');
+
+    // Common inbound (income)
+    insert('Work', '#1565C0', 'material', 'work', 'inbound');
+    insert('Gift', '#F06292', 'material', 'card_giftcard', 'inbound');
+    insert('Investments', '#2E7D32', 'material', 'show_chart', 'inbound');
+
+    // Transfer
+    insert('Transfer', '#607D8B', 'material', 'compare_arrows', 'internal');
+  }
+}
+class CreateTransactionTypesMigration implements Migration {
+  @override
+  int get id => 6;
+
+  @override
+  String get name => 'create_transaction_types_table';
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS transaction_types (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        color TEXT NOT NULL,
+        icon_kind TEXT NOT NULL CHECK(icon_kind IN ('material','emoji')),
+        icon_value TEXT NOT NULL,
+        applies_to TEXT NOT NULL DEFAULT 'any' CHECK(applies_to IN ('any','inbound','outbound','internal')),
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    ''');
+  }
+}
+
+class CreateTransactionsMigration implements Migration {
+  @override
+  int get id => 7;
+
+  @override
+  String get name => 'create_transactions_table';
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL CHECK(kind IN ('inbound','outbound','internal')),
+        -- For inbound/outbound
+        account_id INTEGER NULL,
+        amount INTEGER NULL,
+        -- For internal transfers
+        from_account_id INTEGER NULL,
+        to_account_id INTEGER NULL,
+        out_amount INTEGER NULL,
+        in_amount INTEGER NULL,
+        -- Optional linkage
+        type_id INTEGER NULL,
+        description TEXT NULL,
+        occurred_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+
+        -- Basic relational intent (not enforced if PRAGMA foreign_keys=OFF)
+        FOREIGN KEY(account_id) REFERENCES accounts(id),
+        FOREIGN KEY(from_account_id) REFERENCES accounts(id),
+        FOREIGN KEY(to_account_id) REFERENCES accounts(id),
+        FOREIGN KEY(type_id) REFERENCES transaction_types(id),
+
+        -- Shape constraints to ensure valid combinations per kind
+        CHECK(
+          (kind = 'inbound' AND account_id IS NOT NULL AND amount IS NOT NULL AND from_account_id IS NULL AND to_account_id IS NULL AND out_amount IS NULL AND in_amount IS NULL)
+          OR
+          (kind = 'outbound' AND account_id IS NOT NULL AND amount IS NOT NULL AND from_account_id IS NULL AND to_account_id IS NULL AND out_amount IS NULL AND in_amount IS NULL)
+          OR
+          (kind = 'internal' AND account_id IS NULL AND from_account_id IS NOT NULL AND to_account_id IS NOT NULL AND from_account_id <> to_account_id AND (
+              (amount IS NOT NULL AND out_amount IS NULL AND in_amount IS NULL) OR
+              (amount IS NULL AND out_amount IS NOT NULL AND in_amount IS NOT NULL)
+          ))
+        )
+      );
+    ''');
+
+    // Useful indices
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at DESC)");
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id)");
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_from_to ON transactions(from_account_id, to_account_id)");
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type_id)");
+  }
+}

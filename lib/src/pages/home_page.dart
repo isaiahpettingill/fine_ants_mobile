@@ -10,6 +10,9 @@ import 'account_setup_page.dart';
 import '../services/account_store.dart';
 import '../services/sync_service.dart';
 import '../repositories/currencies_repository.dart';
+import '../repositories/transactions_repository.dart';
+import '../repositories/transaction_types_repository.dart';
+import '../features/transactions/presentation/transactions_page.dart';
 import 'currency_management_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,6 +24,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final bool _showSyncButton = false;
   String _status = 'Opening database...';
   AppDb? _appDb;
   AccountsRepository? _repo;
@@ -44,6 +48,9 @@ class _HomePageState extends State<HomePage> {
         CreateCurrenciesMigration(),
         SeedCurrenciesMigration(),
         AddCurrencyToAccountsMigration(),
+        CreateTransactionTypesMigration(),
+        CreateTransactionsMigration(),
+        SeedDefaultTransactionTypesMigration(),
       ]);
       final repo = AccountsRepository(db.db);
       final rows = repo.listAll();
@@ -86,16 +93,16 @@ class _HomePageState extends State<HomePage> {
             index: _tabIndex,
             children: [
               _buildAccountsTab(),
-              const Center(child: Text('Transactions (coming soon)')),
+              _buildTransactionsTab(),
               const Center(child: Text('Stats (coming soon)')),
             ],
           );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.account.name} Register'),
+        title: Text(widget.account.name),
         actions: [
-          IconButton(
+          if (_showSyncButton) IconButton(
             tooltip: 'Sync all registers',
             icon: const Icon(Icons.sync),
             onPressed: () async {
@@ -157,6 +164,21 @@ class _HomePageState extends State<HomePage> {
 Widget _buildAccountsTabFallback(String message) => Center(child: Text(message));
 
 extension on _HomePageState {
+  Widget _buildTransactionsTab() {
+    final db = _appDb?.db;
+    if (db == null) return _buildAccountsTabFallback(_status);
+    final accountsRepo = AccountsRepository(db);
+    final txRepo = TransactionsRepository(db);
+    final curRepo = CurrenciesRepository(db);
+    final typesRepo = TransactionTypesRepository(db);
+    return TransactionsPage(
+      accountsRepo: accountsRepo,
+      txRepo: txRepo,
+      currenciesRepo: curRepo,
+      typesRepo: typesRepo,
+    );
+  }
+
   Widget _buildAccountsTab() {
     final repo = _repo;
     if (repo == null) return _buildAccountsTabFallback(_status);
@@ -267,6 +289,18 @@ extension _DrawerExt on _HomePageState {
                       },
                     ),
                   const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.sync),
+                    title: const Text('Sync all registers'),
+                    onTap: () async {
+                      final before = ScaffoldMessenger.of(context);
+                      before.showSnackBar(const SnackBar(content: Text('Syncing registers.')));
+                      final count = await SyncService.syncAll();
+                      before.showSnackBar(
+                        SnackBar(content: Text('Synced $count register(s)')),
+                      );
+                    },
+                  ),
                   ListTile(
                     leading: const Icon(Icons.payments),
                     title: const Text('Manage currencies'),
