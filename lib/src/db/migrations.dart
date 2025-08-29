@@ -98,3 +98,76 @@ class AddAccountTypeToAccountsMigration implements Migration {
     }
   }
 }
+
+class CreateCurrenciesMigration implements Migration {
+  @override
+  int get id => 3;
+
+  @override
+  String get name => 'create_currencies_table';
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS currencies (
+        code TEXT PRIMARY KEY,
+        symbol TEXT NULL,
+        symbol_position TEXT NOT NULL DEFAULT 'before',
+        decimal_places INTEGER NOT NULL DEFAULT 2
+      );
+    ''');
+  }
+}
+
+class SeedCurrenciesMigration implements Migration {
+  @override
+  int get id => 4;
+
+  @override
+  String get name => 'seed_currencies';
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    void insert(String code, String? symbol, String pos, int decimals) {
+      db.execute(
+        'INSERT OR IGNORE INTO currencies (code, symbol, symbol_position, decimal_places) VALUES (?, ?, ?, ?)',
+        [code, symbol, pos, decimals],
+      );
+    }
+
+    // Fiat presets
+    insert('USD', '\$', 'before', 2);
+    insert('EUR', '€', 'before', 2);
+    insert('MXN', 'MX\$', 'before', 2);
+    insert('CAD', 'CA\$', 'before', 2);
+
+    // Crypto presets (symbol null)
+    insert('BTC', null, 'before', 8);
+    insert('ETH', null, 'before', 8);
+    insert('XRP', null, 'before', 6);
+  }
+}
+
+class AddCurrencyToAccountsMigration implements Migration {
+  @override
+  int get id => 5;
+
+  @override
+  String get name => 'add_currency_to_accounts';
+
+  bool _columnExists(sqlite.Database db, String table, String column) {
+    final result = db.select("PRAGMA table_info($table)");
+    for (final row in result) {
+      final name = row['name'] as String?;
+      if (name == column) return true;
+    }
+    return false;
+  }
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    if (!_columnExists(db, 'accounts', 'currency_code')) {
+      db.execute("ALTER TABLE accounts ADD COLUMN currency_code TEXT NULL");
+    }
+  }
+}

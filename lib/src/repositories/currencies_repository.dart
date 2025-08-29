@@ -33,6 +33,21 @@ class CurrenciesRepository {
     ];
   }
 
+  CurrencyRow? getByCode(String code) {
+    final result = db.select(
+      'SELECT code, symbol, symbol_position, decimal_places FROM currencies WHERE code = ? LIMIT 1',
+      [code],
+    );
+    if (result.isEmpty) return null;
+    final row = result.first;
+    return CurrencyRow(
+      code: row['code'] as String,
+      symbol: row['symbol'] as String?,
+      symbolPosition: row['symbol_position'] as String,
+      decimalPlaces: row['decimal_places'] as int,
+    );
+  }
+
   void create({
     required String code,
     String? symbol,
@@ -48,5 +63,20 @@ class CurrenciesRepository {
       stmt.dispose();
     }
   }
-}
 
+  void update({
+    required String code,
+    String? symbol,
+    required String symbolPosition,
+    required int decimalPlaces,
+  }) {
+    db.execute(
+      'UPDATE currencies SET symbol = ?, symbol_position = ?, decimal_places = ? WHERE code = ?',
+      [symbol, symbolPosition, decimalPlaces, code],
+    );
+  }
+
+  void delete(String code) {
+    db.execute('DELETE FROM currencies WHERE code = ?', [code]);
+  }
+}

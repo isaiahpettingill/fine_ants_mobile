@@ -9,6 +9,8 @@ import 'account_edit_page.dart';
 import 'account_setup_page.dart';
 import '../services/account_store.dart';
 import '../services/sync_service.dart';
+import '../repositories/currencies_repository.dart';
+import 'currency_management_page.dart';
 
 class HomePage extends StatefulWidget {
   final Account account;
@@ -39,6 +41,9 @@ class _HomePageState extends State<HomePage> {
       await runner.applyAll([
         CreateAccountsMigration(),
         AddAccountTypeToAccountsMigration(),
+        CreateCurrenciesMigration(),
+        SeedCurrenciesMigration(),
+        AddCurrencyToAccountsMigration(),
       ]);
       final repo = AccountsRepository(db.db);
       final rows = repo.listAll();
@@ -204,6 +209,7 @@ extension on _HomePageState {
                 title: Text(a.name),
                 subtitle: Text([
                   if (a.accountType.isNotEmpty) a.accountType,
+                  a.currencyCode,
                   a.icon,
                   a.color,
                 ].join(' • ')),
@@ -234,6 +240,8 @@ Color _parseColor(String hex) {
   final value = int.tryParse(h, radix: 16) ?? 0x000000;
   return Color(0xFF000000 | value);
 }
+
+extension _DrawerExt on _HomePageState {
   Drawer _buildDrawer(BuildContext context) {
     return Drawer(
       child: SafeArea(
@@ -258,6 +266,20 @@ Color _parseColor(String hex) {
                         );
                       },
                     ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.payments),
+                    title: const Text('Manage currencies'),
+                    onTap: () {
+                      final db = _appDb?.db;
+                      if (db == null) return;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => CurrencyManagementPage(repo: CurrenciesRepository(db)),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -276,3 +298,4 @@ Color _parseColor(String hex) {
       ),
     );
   }
+}
