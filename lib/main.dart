@@ -36,14 +36,19 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Fine Ants',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: seed,
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
       ),
       home: FutureBuilder(
         future: _loadFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
           }
           final hasAccount = AccountStore.instance.accounts.isNotEmpty;
           if (!hasAccount) {

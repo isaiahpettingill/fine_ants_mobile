@@ -1,8 +1,18 @@
 String formatDateTimeShort(DateTime dt) {
   final local = dt.toLocal();
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   final m = months[local.month - 1];
   final day = local.day;
@@ -14,4 +24,3 @@ String formatDateTimeShort(DateTime dt) {
   if (hour == 0) hour = 12;
   return '$m $day, $year · $hour:$minute $ampm';
 }
-

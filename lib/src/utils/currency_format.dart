@@ -55,7 +55,9 @@ int parseMajorToMinor(String text, CurrencyRow c) {
   final whole = int.tryParse(wholeStr);
   if (whole == null) throw FormatException('Invalid amount');
   final scale = pow10(d);
-  final fracPadded = (fracStr.length >= d) ? fracStr.substring(0, d) : fracStr.padRight(d, '0');
+  final fracPadded = (fracStr.length >= d)
+      ? fracStr.substring(0, d)
+      : fracStr.padRight(d, '0');
   final frac = int.tryParse(fracPadded) ?? 0;
   final sign = cleaned.startsWith('-') ? -1 : 1;
   return sign * (whole.abs() * scale + frac);

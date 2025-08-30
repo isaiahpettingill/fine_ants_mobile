@@ -18,7 +18,8 @@ class AccountColorSelector extends StatelessWidget {
     final r = (argb >> 16) & 0xff;
     final g = (argb >> 8) & 0xff;
     final b = argb & 0xff;
-    return '#${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+    return '#${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
+        .toUpperCase();
   }
 
   void _openPicker(BuildContext context) {
@@ -35,7 +36,10 @@ class AccountColorSelector extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Done'),
+          ),
         ],
       ),
     );
@@ -64,7 +68,10 @@ class AccountColorSelector extends StatelessWidget {
             const SizedBox(width: 12),
             Text(_toHex(color), style: theme.textTheme.bodyMedium),
             const SizedBox(width: 12),
-            TextButton(onPressed: () => _openPicker(context), child: const Text('Pick color…')),
+            TextButton(
+              onPressed: () => _openPicker(context),
+              child: const Text('Pick color…'),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -92,4 +99,3 @@ class AccountColorSelector extends StatelessWidget {
     );
   }
 }
-

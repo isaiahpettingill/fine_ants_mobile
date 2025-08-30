@@ -62,7 +62,8 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
     if (path == null || path.isEmpty) return;
     setState(() {
       _chosenPath = path;
-      _mirrorUri = null; // path is a real filesystem path on supported platforms
+      _mirrorUri =
+          null; // path is a real filesystem path on supported platforms
     });
   }
 
@@ -80,8 +81,9 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
         if (!mounted) return;
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed to persist permissions: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to persist permissions: $e')),
+        );
       }
       setState(() {
         _chosenPath = null;
@@ -89,7 +91,9 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cloud folder selected via SAF. Will mirror the DB.')),
+        const SnackBar(
+          content: Text('Cloud folder selected via SAF. Will mirror the DB.'),
+        ),
       );
     } else {
       // A real directory path was returned (iOS or older Android). We'll copy the DB there on creation.
@@ -104,8 +108,9 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
     if (_saving) return;
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please enter a name')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a name')));
       return;
     }
     setState(() => _saving = true);
@@ -150,8 +155,9 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Mirror failed: $e')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Mirror failed: $e')));
         }
       }
 
@@ -161,9 +167,9 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create account: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to create account: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -188,7 +194,10 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Choose where to save the SQLite file', style: theme.textTheme.titleMedium),
+            Text(
+              'Choose where to save the SQLite file',
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 12,
@@ -217,7 +226,11 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 18, color: color.withValues(alpha: 0.8)),
+                Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: color.withValues(alpha: 0.8),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -230,9 +243,15 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
             ),
             const Spacer(),
             if (_chosenPath != null)
-              Text('Selected path: ${_chosenPath!}', style: theme.textTheme.bodySmall),
+              Text(
+                'Selected path: ${_chosenPath!}',
+                style: theme.textTheme.bodySmall,
+              ),
             if (_mirrorUri != null)
-              Text('Mirror URI: ${_mirrorUri!}', style: theme.textTheme.bodySmall),
+              Text(
+                'Mirror URI: ${_mirrorUri!}',
+                style: theme.textTheme.bodySmall,
+              ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,

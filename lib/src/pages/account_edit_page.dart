@@ -44,7 +44,14 @@ class _AccountEditPageState extends State<AccountEditPage> {
     _currencies = curRepo.listAll();
     if (_currencies.isEmpty) {
       // If somehow empty (before migrations), default to USD option only
-      _currencies = [CurrencyRow(code: 'USD', symbol: '\$', symbolPosition: 'before', decimalPlaces: 2)];
+      _currencies = [
+        CurrencyRow(
+          code: 'USD',
+          symbol: '\$',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        ),
+      ];
     }
     // Prefill currency for new accounts from last used in this register
     if (i == null) {
@@ -73,8 +80,10 @@ class _AccountEditPageState extends State<AccountEditPage> {
     final r = (argb >> 16) & 0xff;
     final g = (argb >> 8) & 0xff;
     final b = argb & 0xff;
-    return '#${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+    return '#${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
+        .toUpperCase();
   }
+
   static Color _parseHex(String hex) {
     var h = hex.replaceAll('#', '').trim();
     if (h.length == 3) {
@@ -88,7 +97,9 @@ class _AccountEditPageState extends State<AccountEditPage> {
     if (_saving) return;
     final name = _name.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name required')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Name required')));
       return;
     }
     setState(() => _saving = true);
@@ -97,15 +108,30 @@ class _AccountEditPageState extends State<AccountEditPage> {
       final currencyCode = _currencyCode;
       final accountType = _accountType.text.trim();
       if (widget.initial == null) {
-        widget.repo.create(name: name, icon: _icon, color: colorHex, accountType: accountType, currencyCode: currencyCode);
+        widget.repo.create(
+          name: name,
+          icon: _icon,
+          color: colorHex,
+          accountType: accountType,
+          currencyCode: currencyCode,
+        );
       } else {
-        widget.repo.update(id: widget.initial!.id, name: name, icon: _icon, color: colorHex, accountType: accountType, currencyCode: currencyCode);
+        widget.repo.update(
+          id: widget.initial!.id,
+          name: name,
+          icon: _icon,
+          color: colorHex,
+          accountType: accountType,
+          currencyCode: currencyCode,
+        );
       }
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -117,11 +143,16 @@ class _AccountEditPageState extends State<AccountEditPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.initial == null ? 'New Account' : 'Edit Account')),
+      appBar: AppBar(
+        title: Text(widget.initial == null ? 'New Account' : 'Edit Account'),
+      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final iconHeight = (constraints.maxHeight * 0.36).clamp(200.0, 420.0);
+            final iconHeight = (constraints.maxHeight * 0.36).clamp(
+              200.0,
+              420.0,
+            );
             final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 16),
@@ -130,7 +161,10 @@ class _AccountEditPageState extends State<AccountEditPage> {
                 children: [
                   TextField(
                     controller: _name,
-                    decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _AccountTypeField(controller: _accountType),
@@ -142,7 +176,8 @@ class _AccountEditPageState extends State<AccountEditPage> {
                       Expanded(
                         child: AccountColorSelector(
                           color: _color,
-                          onChanged: (c) => setState(() => _color = c.withValues(alpha: 1.0)),
+                          onChanged: (c) =>
+                              setState(() => _color = c.withValues(alpha: 1.0)),
                         ),
                       ),
                     ],
@@ -227,25 +262,26 @@ class _AccountTypeFieldState extends State<_AccountTypeField> {
         return _suggestions.where((s) => s.toLowerCase().contains(query));
       },
       onSelected: (s) => widget.controller.text = s,
-      fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-        // Keep the external controller in sync for initial and manual changes.
-        textEditingController.text = widget.controller.text;
-        textEditingController.addListener(() {
-          if (widget.controller.text != textEditingController.text) {
-            widget.controller.text = textEditingController.text;
-          }
-        });
-        return TextField(
-          controller: textEditingController,
-          focusNode: focusNode,
-          decoration: const InputDecoration(
-            labelText: 'Account Type',
-            hintText: 'e.g., savings, checking, crypto…',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (_) => onFieldSubmitted(),
-        );
-      },
+      fieldViewBuilder:
+          (context, textEditingController, focusNode, onFieldSubmitted) {
+            // Keep the external controller in sync for initial and manual changes.
+            textEditingController.text = widget.controller.text;
+            textEditingController.addListener(() {
+              if (widget.controller.text != textEditingController.text) {
+                widget.controller.text = textEditingController.text;
+              }
+            });
+            return TextField(
+              controller: textEditingController,
+              focusNode: focusNode,
+              decoration: const InputDecoration(
+                labelText: 'Account Type',
+                hintText: 'e.g., savings, checking, crypto…',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => onFieldSubmitted(),
+            );
+          },
     );
   }
 }
@@ -353,28 +389,44 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
             TextField(
               controller: _code,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(labelText: 'Code (e.g., USD, BTC)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Code (e.g., USD, BTC)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _symbol,
-              decoration: const InputDecoration(labelText: 'Symbol (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Symbol (optional)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Symbol position', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Symbol position',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _position,
                         isExpanded: true,
                         items: const [
-                          DropdownMenuItem(value: 'before', child: Text('before')),
-                          DropdownMenuItem(value: 'after', child: Text('after')),
+                          DropdownMenuItem(
+                            value: 'before',
+                            child: Text('before'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'after',
+                            child: Text('after'),
+                          ),
                         ],
-                        onChanged: (v) => setState(() => _position = v ?? 'before'),
+                        onChanged: (v) =>
+                            setState(() => _position = v ?? 'before'),
                       ),
                     ),
                   ),
@@ -382,13 +434,19 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Decimals', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Decimals',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
                         value: _decimals,
                         isExpanded: true,
                         items: const [0, 1, 2, 3, 4, 5, 6, 7, 8]
-                            .map((d) => DropdownMenuItem(value: d, child: Text('$d')))
+                            .map(
+                              (d) =>
+                                  DropdownMenuItem(value: d, child: Text('$d')),
+                            )
                             .toList(),
                         onChanged: (v) => setState(() => _decimals = v ?? 2),
                       ),
@@ -401,7 +459,10 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             final code = _code.text.trim().toUpperCase();
@@ -410,7 +471,9 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
               context,
               CurrencyRow(
                 code: code,
-                symbol: _symbol.text.trim().isEmpty ? null : _symbol.text.trim(),
+                symbol: _symbol.text.trim().isEmpty
+                    ? null
+                    : _symbol.text.trim(),
                 symbolPosition: _position,
                 decimalPlaces: _decimals,
               ),

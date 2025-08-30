@@ -33,4 +33,3 @@ const List<Color> kAccountQuickColors = <Color>[
   Color(0xFF90A4AE),
   Color(0xFFB0BEC5),
 ];
-

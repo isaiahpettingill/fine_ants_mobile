@@ -9,4 +9,3 @@ Color parseHexColor(String hex) {
   final value = int.tryParse(h, radix: 16) ?? 0x000000;
   return Color(0xFF000000 | value);
 }
-

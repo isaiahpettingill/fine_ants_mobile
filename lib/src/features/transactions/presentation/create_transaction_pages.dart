@@ -47,7 +47,10 @@ class _TypePickerState extends State<_TypePicker> {
       children: [
         Expanded(
           child: InputDecorator(
-            decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Type',
+              border: OutlineInputBorder(),
+            ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
                 value: _typeId,
@@ -65,7 +68,8 @@ class _TypePickerState extends State<_TypePicker> {
                             child: t.iconKind == 'emoji'
                                 ? Text(t.iconValue)
                                 : Icon(
-                                    kAccountIconChoices[t.iconValue] ?? Icons.category,
+                                    kAccountIconChoices[t.iconValue] ??
+                                        Icons.category,
                                     color: Colors.white,
                                     size: 16,
                                   ),
@@ -172,15 +176,21 @@ class _NewInboundPageState extends State<NewInboundPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: _desc,
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               _whenRow(context),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: _save, child: const Text('Add funds')),
-              )
+                child: FilledButton(
+                  onPressed: _save,
+                  child: const Text('Add funds'),
+                ),
+              ),
             ],
           ),
         ),
@@ -190,7 +200,10 @@ class _NewInboundPageState extends State<NewInboundPage> {
 
   Widget _accountSelector(List<AccountRow> accounts) {
     return InputDecorator(
-      decoration: const InputDecoration(labelText: 'Account', border: OutlineInputBorder()),
+      decoration: const InputDecoration(
+        labelText: 'Account',
+        border: OutlineInputBorder(),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: _accountId,
@@ -214,7 +227,7 @@ class _NewInboundPageState extends State<NewInboundPage> {
                     Text(a.name),
                   ],
                 ),
-              )
+              ),
           ],
           onChanged: (v) => setState(() => _accountId = v),
         ),
@@ -223,14 +236,29 @@ class _NewInboundPageState extends State<NewInboundPage> {
   }
 
   Widget _amountField(List<AccountRow> accounts) {
-    final acct = accounts.firstWhere((a) => a.id == _accountId, orElse: () => accounts.isNotEmpty ? accounts.first : (throw StateError('No accounts')));
-    final cur = widget.currenciesRepo.getByCode(acct.currencyCode) ??
-        CurrencyRow(code: acct.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
+    final acct = accounts.firstWhere(
+      (a) => a.id == _accountId,
+      orElse: () => accounts.isNotEmpty
+          ? accounts.first
+          : (throw StateError('No accounts')),
+    );
+    final cur =
+        widget.currenciesRepo.getByCode(acct.currencyCode) ??
+        CurrencyRow(
+          code: acct.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
     final sym = cur.symbol ?? cur.code;
     return TextField(
       controller: _amount,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(labelText: 'Amount ($sym)', hintText: 'e.g., 12.34', border: const OutlineInputBorder()),
+      decoration: InputDecoration(
+        labelText: 'Amount ($sym)',
+        hintText: 'e.g., 12.34',
+        border: const OutlineInputBorder(),
+      ),
     );
   }
 
@@ -248,9 +276,20 @@ class _NewInboundPageState extends State<NewInboundPage> {
             );
             if (d == null) return;
             if (!context.mounted) return;
-            final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_occurredAt));
+            final t = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(_occurredAt),
+            );
             if (!context.mounted) return;
-            setState(() => _occurredAt = DateTime(d.year, d.month, d.day, t?.hour ?? 0, t?.minute ?? 0));
+            setState(
+              () => _occurredAt = DateTime(
+                d.year,
+                d.month,
+                d.day,
+                t?.hour ?? 0,
+                t?.minute ?? 0,
+              ),
+            );
           },
           child: const Text('Pick date/time'),
         ),
@@ -264,8 +303,14 @@ class _NewInboundPageState extends State<NewInboundPage> {
       if (_typeId == null) throw Exception('Select a type');
       final accounts = widget.accountsRepo.listAll();
       final acct = accounts.firstWhere((a) => a.id == _accountId);
-      final cur = widget.currenciesRepo.getByCode(acct.currencyCode) ??
-          CurrencyRow(code: acct.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
+      final cur =
+          widget.currenciesRepo.getByCode(acct.currencyCode) ??
+          CurrencyRow(
+            code: acct.currencyCode,
+            symbol: '',
+            symbolPosition: 'before',
+            decimalPlaces: 2,
+          );
       final amtMinor = parseMajorToMinor(_amount.text.trim(), cur);
       widget.txRepo.createInbound(
         accountId: _accountId!,
@@ -276,7 +321,9 @@ class _NewInboundPageState extends State<NewInboundPage> {
       );
       Navigator.pop(context, true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 }
@@ -344,15 +391,21 @@ class _NewOutboundPageState extends State<NewOutboundPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: _desc,
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               _whenRow(context),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: _save, child: const Text('Record expense')),
-              )
+                child: FilledButton(
+                  onPressed: _save,
+                  child: const Text('Record expense'),
+                ),
+              ),
             ],
           ),
         ),
@@ -362,12 +415,18 @@ class _NewOutboundPageState extends State<NewOutboundPage> {
 
   Widget _accountSelector(List<AccountRow> accounts) {
     return InputDecorator(
-      decoration: const InputDecoration(labelText: 'Account', border: OutlineInputBorder()),
+      decoration: const InputDecoration(
+        labelText: 'Account',
+        border: OutlineInputBorder(),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: _accountId,
           isExpanded: true,
-          items: [for (final a in accounts) DropdownMenuItem(value: a.id, child: Text(a.name))],
+          items: [
+            for (final a in accounts)
+              DropdownMenuItem(value: a.id, child: Text(a.name)),
+          ],
           onChanged: (v) => setState(() => _accountId = v),
         ),
       ),
@@ -375,14 +434,29 @@ class _NewOutboundPageState extends State<NewOutboundPage> {
   }
 
   Widget _amountField(List<AccountRow> accounts) {
-    final acct = accounts.firstWhere((a) => a.id == _accountId, orElse: () => accounts.isNotEmpty ? accounts.first : (throw StateError('No accounts')));
-    final cur = widget.currenciesRepo.getByCode(acct.currencyCode) ??
-        CurrencyRow(code: acct.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
+    final acct = accounts.firstWhere(
+      (a) => a.id == _accountId,
+      orElse: () => accounts.isNotEmpty
+          ? accounts.first
+          : (throw StateError('No accounts')),
+    );
+    final cur =
+        widget.currenciesRepo.getByCode(acct.currencyCode) ??
+        CurrencyRow(
+          code: acct.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
     final sym = cur.symbol ?? cur.code;
     return TextField(
       controller: _amount,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(labelText: 'Amount ($sym)', hintText: 'e.g., 12.34', border: const OutlineInputBorder()),
+      decoration: InputDecoration(
+        labelText: 'Amount ($sym)',
+        hintText: 'e.g., 12.34',
+        border: const OutlineInputBorder(),
+      ),
     );
   }
 
@@ -400,9 +474,20 @@ class _NewOutboundPageState extends State<NewOutboundPage> {
             );
             if (d == null) return;
             if (!context.mounted) return;
-            final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_occurredAt));
+            final t = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(_occurredAt),
+            );
             if (!context.mounted) return;
-            setState(() => _occurredAt = DateTime(d.year, d.month, d.day, t?.hour ?? 0, t?.minute ?? 0));
+            setState(
+              () => _occurredAt = DateTime(
+                d.year,
+                d.month,
+                d.day,
+                t?.hour ?? 0,
+                t?.minute ?? 0,
+              ),
+            );
           },
           child: const Text('Pick date/time'),
         ),
@@ -416,8 +501,14 @@ class _NewOutboundPageState extends State<NewOutboundPage> {
       if (_typeId == null) throw Exception('Select a type');
       final accounts = widget.accountsRepo.listAll();
       final acct = accounts.firstWhere((a) => a.id == _accountId);
-      final cur = widget.currenciesRepo.getByCode(acct.currencyCode) ??
-          CurrencyRow(code: acct.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
+      final cur =
+          widget.currenciesRepo.getByCode(acct.currencyCode) ??
+          CurrencyRow(
+            code: acct.currencyCode,
+            symbol: '',
+            symbolPosition: 'before',
+            decimalPlaces: 2,
+          );
       final amtMinor = parseMajorToMinor(_amount.text.trim(), cur);
       widget.txRepo.createOutbound(
         accountId: _accountId!,
@@ -428,7 +519,274 @@ class _NewOutboundPageState extends State<NewOutboundPage> {
       );
       Navigator.pop(context, true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+    }
+  }
+}
+
+class NewRebalancePage extends StatefulWidget {
+  const NewRebalancePage({
+    super.key,
+    required this.accountsRepo,
+    required this.currenciesRepo,
+    required this.txRepo,
+    this.initialAccountId,
+  });
+
+  final AccountsRepository accountsRepo;
+  final CurrenciesRepository currenciesRepo;
+  final TransactionsRepository txRepo;
+  final int? initialAccountId;
+
+  @override
+  State<NewRebalancePage> createState() => _NewRebalancePageState();
+}
+
+class _NewRebalancePageState extends State<NewRebalancePage> {
+  int? _accountId;
+  final _actual =
+      TextEditingController(); // major units (what’s in the account now)
+  DateTime _occurredAt = DateTime.now();
+  String? _preview; // delta preview text
+
+  @override
+  void initState() {
+    super.initState();
+    _accountId = widget.initialAccountId;
+  }
+
+  @override
+  void dispose() {
+    _actual.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accounts = widget.accountsRepo.listAll();
+    return Scaffold(
+      appBar: AppBar(title: const Text('Rebalance account')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _accountSelector(accounts),
+              const SizedBox(height: 12),
+              if (_accountId != null) _balanceInfo(accounts),
+              const SizedBox(height: 12),
+              _actualField(accounts),
+              const SizedBox(height: 8),
+              if (_preview != null)
+                Text(_preview!, style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 12),
+              _whenRow(context),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _save,
+                  child: const Text('Rebalance'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _accountSelector(List<AccountRow> accounts) {
+    return InputDecorator(
+      decoration: const InputDecoration(
+        labelText: 'Account',
+        border: OutlineInputBorder(),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _accountId,
+          isExpanded: true,
+          items: [
+            for (final a in accounts)
+              DropdownMenuItem(
+                value: a.id,
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: parseHexColor(a.color),
+                      child: Icon(
+                        kAccountIconChoices[a.icon] ?? Icons.account_balance,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(a.name),
+                  ],
+                ),
+              ),
+          ],
+          onChanged: (v) => setState(() {
+            _accountId = v;
+            _updatePreview(accounts);
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _balanceInfo(List<AccountRow> accounts) {
+    final acct = accounts.firstWhere((a) => a.id == _accountId);
+    final cur =
+        widget.currenciesRepo.getByCode(acct.currencyCode) ??
+        CurrencyRow(
+          code: acct.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
+    final expectedMinor = widget.txRepo.getAccountBalanceMinor(acct.id);
+    final expected = formatMinorUnits(expectedMinor, cur);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+      child: Text('Current recorded balance: $expected'),
+    );
+  }
+
+  Widget _actualField(List<AccountRow> accounts) {
+    final acct = accounts.firstWhere(
+      (a) => a.id == _accountId,
+      orElse: () => accounts.isNotEmpty
+          ? accounts.first
+          : (throw StateError('No accounts')),
+    );
+    final cur =
+        widget.currenciesRepo.getByCode(acct.currencyCode) ??
+        CurrencyRow(
+          code: acct.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
+    final sym = cur.symbol ?? cur.code;
+    return TextField(
+      controller: _actual,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: (_) => _updatePreview(accounts),
+      decoration: InputDecoration(
+        labelText: 'Actual balance now ($sym)',
+        hintText: 'e.g., 123.45',
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  void _updatePreview(List<AccountRow> accounts) {
+    final id = _accountId;
+    if (id == null) return;
+    try {
+      final acct = accounts.firstWhere((a) => a.id == id);
+      final cur =
+          widget.currenciesRepo.getByCode(acct.currencyCode) ??
+          CurrencyRow(
+            code: acct.currencyCode,
+            symbol: '',
+            symbolPosition: 'before',
+            decimalPlaces: 2,
+          );
+      final expectedMinor = widget.txRepo.getAccountBalanceMinor(id);
+      final actualMinor = parseMajorToMinor(_actual.text.trim(), cur);
+      final deltaMinor = actualMinor - expectedMinor;
+      final sign = deltaMinor == 0
+          ? ''
+          : deltaMinor > 0
+          ? 'Add '
+          : 'Remove ';
+      final s = formatMinorUnits(deltaMinor.abs(), cur);
+      setState(
+        () => _preview = deltaMinor == 0 ? 'Already balanced' : '$sign$s',
+      );
+    } catch (_) {
+      setState(() => _preview = null);
+    }
+  }
+
+  Widget _whenRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text('When: ${formatDateTimeShort(_occurredAt)}')),
+        TextButton(
+          onPressed: () async {
+            final d = await showDatePicker(
+              context: context,
+              initialDate: _occurredAt,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+            if (d == null) return;
+            if (!context.mounted) return;
+            final t = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(_occurredAt),
+            );
+            if (!context.mounted) return;
+            setState(
+              () => _occurredAt = DateTime(
+                d.year,
+                d.month,
+                d.day,
+                t?.hour ?? 0,
+                t?.minute ?? 0,
+              ),
+            );
+          },
+          child: const Text('Pick date/time'),
+        ),
+      ],
+    );
+  }
+
+  void _save() {
+    try {
+      if (_accountId == null) throw Exception('Select account');
+      final accounts = widget.accountsRepo.listAll();
+      final acct = accounts.firstWhere((a) => a.id == _accountId);
+      final cur =
+          widget.currenciesRepo.getByCode(acct.currencyCode) ??
+          CurrencyRow(
+            code: acct.currencyCode,
+            symbol: '',
+            symbolPosition: 'before',
+            decimalPlaces: 2,
+          );
+      final expectedMinor = widget.txRepo.getAccountBalanceMinor(_accountId!);
+      final actualMinor = parseMajorToMinor(_actual.text.trim(), cur);
+      final deltaMinor = actualMinor - expectedMinor;
+      if (deltaMinor == 0) {
+        Navigator.pop(context, false);
+        return;
+      }
+      final desc = 'Rebalance to ${formatMinorUnits(actualMinor, cur)}';
+      widget.txRepo.createRebalance(
+        accountId: _accountId!,
+        deltaMinor: deltaMinor,
+        occurredAt: _occurredAt,
+        description: desc,
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 }
@@ -490,9 +848,23 @@ class _NewTransferPageState extends State<NewTransferPage> {
             children: [
               Row(
                 children: [
-                  Expanded(child: _accountDropdown('From account', accounts, _fromAccountId, (v) => setState(() => _fromAccountId = v))),
+                  Expanded(
+                    child: _accountDropdown(
+                      'From account',
+                      accounts,
+                      _fromAccountId,
+                      (v) => setState(() => _fromAccountId = v),
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _accountDropdown('To account', accounts, _toAccountId, (v) => setState(() => _toAccountId = v))),
+                  Expanded(
+                    child: _accountDropdown(
+                      'To account',
+                      accounts,
+                      _toAccountId,
+                      (v) => setState(() => _toAccountId = v),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -500,15 +872,21 @@ class _NewTransferPageState extends State<NewTransferPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: _desc,
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               _whenRow(context),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: _save, child: const Text('Move')),
-              )
+                child: FilledButton(
+                  onPressed: _save,
+                  child: const Text('Move'),
+                ),
+              ),
             ],
           ),
         ),
@@ -516,9 +894,17 @@ class _NewTransferPageState extends State<NewTransferPage> {
     );
   }
 
-  Widget _accountDropdown(String label, List<AccountRow> accounts, int? value, ValueChanged<int?> onChanged) {
+  Widget _accountDropdown(
+    String label,
+    List<AccountRow> accounts,
+    int? value,
+    ValueChanged<int?> onChanged,
+  ) {
     return InputDecorator(
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: value,
@@ -542,7 +928,7 @@ class _NewTransferPageState extends State<NewTransferPage> {
                     Text(a.name),
                   ],
                 ),
-              )
+              ),
           ],
           onChanged: onChanged,
         ),
@@ -551,17 +937,45 @@ class _NewTransferPageState extends State<NewTransferPage> {
   }
 
   Widget _amountFields(List<AccountRow> accounts) {
-    final from = accounts.firstWhere((a) => a.id == _fromAccountId, orElse: () => accounts.isNotEmpty ? accounts.first : (throw StateError('No accounts')));
-    final to = accounts.firstWhere((a) => a.id == _toAccountId, orElse: () => accounts.isNotEmpty ? accounts.first : (throw StateError('No accounts')));
-    final fromCur = widget.currenciesRepo.getByCode(from.currencyCode) ?? CurrencyRow(code: from.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
-    final toCur = widget.currenciesRepo.getByCode(to.currencyCode) ?? CurrencyRow(code: to.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
+    final from = accounts.firstWhere(
+      (a) => a.id == _fromAccountId,
+      orElse: () => accounts.isNotEmpty
+          ? accounts.first
+          : (throw StateError('No accounts')),
+    );
+    final to = accounts.firstWhere(
+      (a) => a.id == _toAccountId,
+      orElse: () => accounts.isNotEmpty
+          ? accounts.first
+          : (throw StateError('No accounts')),
+    );
+    final fromCur =
+        widget.currenciesRepo.getByCode(from.currencyCode) ??
+        CurrencyRow(
+          code: from.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
+    final toCur =
+        widget.currenciesRepo.getByCode(to.currencyCode) ??
+        CurrencyRow(
+          code: to.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
     final same = from.currencyCode == to.currencyCode;
     if (same) {
       final sym = fromCur.symbol ?? fromCur.code;
       return TextField(
         controller: _amount,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(labelText: 'Amount ($sym)', hintText: 'e.g., 12.34', border: const OutlineInputBorder()),
+        decoration: InputDecoration(
+          labelText: 'Amount ($sym)',
+          hintText: 'e.g., 12.34',
+          border: const OutlineInputBorder(),
+        ),
       );
     }
     final symOut = fromCur.symbol ?? fromCur.code;
@@ -572,7 +986,11 @@ class _NewTransferPageState extends State<NewTransferPage> {
           child: TextField(
             controller: _outAmount,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: 'Out ($symOut)', hintText: 'e.g., 12.34', border: const OutlineInputBorder()),
+            decoration: InputDecoration(
+              labelText: 'Out ($symOut)',
+              hintText: 'e.g., 12.34',
+              border: const OutlineInputBorder(),
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -580,7 +998,11 @@ class _NewTransferPageState extends State<NewTransferPage> {
           child: TextField(
             controller: _inAmount,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: 'In ($symIn)', hintText: 'e.g., 12.34', border: const OutlineInputBorder()),
+            decoration: InputDecoration(
+              labelText: 'In ($symIn)',
+              hintText: 'e.g., 12.34',
+              border: const OutlineInputBorder(),
+            ),
           ),
         ),
       ],
@@ -601,9 +1023,20 @@ class _NewTransferPageState extends State<NewTransferPage> {
             );
             if (d == null) return;
             if (!context.mounted) return;
-            final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_occurredAt));
+            final t = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(_occurredAt),
+            );
             if (!context.mounted) return;
-            setState(() => _occurredAt = DateTime(d.year, d.month, d.day, t?.hour ?? 0, t?.minute ?? 0));
+            setState(
+              () => _occurredAt = DateTime(
+                d.year,
+                d.month,
+                d.day,
+                t?.hour ?? 0,
+                t?.minute ?? 0,
+              ),
+            );
           },
           child: const Text('Pick date/time'),
         ),
@@ -613,13 +1046,31 @@ class _NewTransferPageState extends State<NewTransferPage> {
 
   void _save() {
     try {
-      if (_fromAccountId == null || _toAccountId == null) throw Exception('Select both accounts');
-      if (_fromAccountId == _toAccountId) throw Exception('Accounts must differ');
+      if (_fromAccountId == null || _toAccountId == null) {
+        throw Exception('Select both accounts');
+      }
+      if (_fromAccountId == _toAccountId) {
+        throw Exception('Accounts must differ');
+      }
       final accounts = widget.accountsRepo.listAll();
       final from = accounts.firstWhere((a) => a.id == _fromAccountId);
       final to = accounts.firstWhere((a) => a.id == _toAccountId);
-      final fromCur = widget.currenciesRepo.getByCode(from.currencyCode) ?? CurrencyRow(code: from.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
-      final toCur = widget.currenciesRepo.getByCode(to.currencyCode) ?? CurrencyRow(code: to.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
+      final fromCur =
+          widget.currenciesRepo.getByCode(from.currencyCode) ??
+          CurrencyRow(
+            code: from.currencyCode,
+            symbol: '',
+            symbolPosition: 'before',
+            decimalPlaces: 2,
+          );
+      final toCur =
+          widget.currenciesRepo.getByCode(to.currencyCode) ??
+          CurrencyRow(
+            code: to.currencyCode,
+            symbol: '',
+            symbolPosition: 'before',
+            decimalPlaces: 2,
+          );
       if (from.currencyCode == to.currencyCode) {
         final amt = parseMajorToMinor(_amount.text.trim(), fromCur);
         widget.txRepo.createInternalSameCurrency(
@@ -645,13 +1096,19 @@ class _NewTransferPageState extends State<NewTransferPage> {
       }
       Navigator.pop(context, true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 }
 
 class TypeCreatorPage extends StatefulWidget {
-  const TypeCreatorPage({super.key, required this.typesRepo, required this.appliesTo});
+  const TypeCreatorPage({
+    super.key,
+    required this.typesRepo,
+    required this.appliesTo,
+  });
 
   final TransactionTypesRepository typesRepo;
   final String appliesTo; // inbound|outbound|internal
@@ -686,24 +1143,34 @@ class _TypeCreatorPageState extends State<TypeCreatorPage> {
             children: [
               TextField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 16),
               Text('Color', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               AccountColorSelector(
                 color: _color,
-                onChanged: (c) => setState(() => _color = c.withValues(alpha: 1.0)),
+                onChanged: (c) =>
+                    setState(() => _color = c.withValues(alpha: 1.0)),
               ),
               const SizedBox(height: 16),
               InputDecorator(
-                decoration: const InputDecoration(labelText: 'Icon mode', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Icon mode',
+                  border: OutlineInputBorder(),
+                ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _mode,
                     isExpanded: true,
                     items: const [
-                      DropdownMenuItem(value: 'material', child: Text('Material icon')),
+                      DropdownMenuItem(
+                        value: 'material',
+                        child: Text('Material icon'),
+                      ),
                       DropdownMenuItem(value: 'emoji', child: Text('Emoji')),
                     ],
                     onChanged: (v) => setState(() => _mode = v ?? 'material'),
@@ -724,7 +1191,11 @@ class _TypeCreatorPageState extends State<TypeCreatorPage> {
               else
                 TextField(
                   controller: _emoji,
-                  decoration: const InputDecoration(labelText: 'Emoji', hintText: 'e.g., 🍕', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Emoji',
+                    hintText: 'e.g., 🍕',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               const SizedBox(height: 20),
               SizedBox(
@@ -750,13 +1221,27 @@ class _TypeCreatorPageState extends State<TypeCreatorPage> {
       if (_mode == 'emoji') {
         final emoji = _emoji.text.trim();
         if (emoji.isEmpty) throw Exception('Emoji required');
-        id = widget.typesRepo.create(name: name, color: colorHex, iconKind: 'emoji', iconValue: emoji, appliesTo: widget.appliesTo);
+        id = widget.typesRepo.create(
+          name: name,
+          color: colorHex,
+          iconKind: 'emoji',
+          iconValue: emoji,
+          appliesTo: widget.appliesTo,
+        );
       } else {
-        id = widget.typesRepo.create(name: name, color: colorHex, iconKind: 'material', iconValue: _materialIcon, appliesTo: widget.appliesTo);
+        id = widget.typesRepo.create(
+          name: name,
+          color: colorHex,
+          iconKind: 'material',
+          iconValue: _materialIcon,
+          appliesTo: widget.appliesTo,
+        );
       }
       Navigator.pop(context, id);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed: $e')));
     }
   }
 
@@ -765,6 +1250,7 @@ class _TypeCreatorPageState extends State<TypeCreatorPage> {
     final r = (argb >> 16) & 0xff;
     final g = (argb >> 8) & 0xff;
     final b = argb & 0xff;
-    return '#${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+    return '#${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}'
+        .toUpperCase();
   }
 }

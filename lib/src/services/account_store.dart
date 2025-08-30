@@ -37,10 +37,9 @@ class AccountStore {
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-    final payload = {
-      'accounts': accounts.map((a) => a.toJson()).toList(),
-    };
-    await _storeFile.writeAsString(const JsonEncoder.withIndent('  ').convert(payload));
+    final payload = {'accounts': accounts.map((a) => a.toJson()).toList()};
+    await _storeFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(payload),
+    );
   }
 }
-

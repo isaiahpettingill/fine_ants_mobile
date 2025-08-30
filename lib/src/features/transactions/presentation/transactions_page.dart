@@ -8,18 +8,21 @@ import '../../../utils/currency_format.dart';
 import '../../../utils/date_format.dart';
 import '../../accounts/domain/account_icon_choices.dart';
 import 'create_transaction_pages.dart';
+import '../../../services/balance_cache.dart';
 
 class TransactionsPage extends StatefulWidget {
   final AccountsRepository accountsRepo;
   final TransactionsRepository txRepo;
   final CurrenciesRepository currenciesRepo;
   final TransactionTypesRepository typesRepo;
+  final BalanceCache? balanceCache;
   const TransactionsPage({
     super.key,
     required this.accountsRepo,
     required this.txRepo,
     required this.currenciesRepo,
     required this.typesRepo,
+    this.balanceCache,
   });
 
   @override
@@ -37,6 +40,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
   }
 
   Future<void> _refresh() async {
+    widget.balanceCache?.reloadAll();
     setState(() => _items = widget.txRepo.listRecent());
   }
 
@@ -72,15 +76,16 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   children: [
                     _accountFilterRow(),
                     const SizedBox(height: 8),
+                    _balancesSummary(),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
             ),
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final t = _filtered()[index];
-                  return Dismissible(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final t = _filtered()[index];
+                return Dismissible(
                   key: ValueKey('tx_${t.id}'),
                   direction: DismissDirection.endToStart,
                   background: Container(
@@ -90,14 +95,21 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
                   confirmDismiss: (_) async {
-                    final ok = await showDialog<bool>(
+                    final ok =
+                        await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('Delete transaction?'),
                             content: const Text('This cannot be undone.'),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Delete'),
+                              ),
                             ],
                           ),
                         ) ??
@@ -114,10 +126,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     currenciesRepo: widget.currenciesRepo,
                     typesRepo: widget.typesRepo,
                   ),
-                  );
-                },
-                childCount: _filtered().length,
-              ),
+                );
+              }, childCount: _filtered().length),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
@@ -171,6 +181,24 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     },
                   ),
                   ListTile(
+                    leading: const Icon(Icons.tune),
+                    title: const Text('Rebalance'),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      final res = await Navigator.of(context).push<bool>(
+                        MaterialPageRoute(
+                          builder: (_) => NewRebalancePage(
+                            accountsRepo: widget.accountsRepo,
+                            currenciesRepo: widget.currenciesRepo,
+                            txRepo: widget.txRepo,
+                            initialAccountId: _selectedAccountId,
+                          ),
+                        ),
+                      );
+                      if (res == true) _refresh();
+                    },
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.swap_horiz),
                     title: const Text('Move funds'),
                     onTap: () async {
@@ -206,6 +234,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
       switch (t.kind) {
         case 'inbound':
         case 'outbound':
+        case 'rebalance':
           return t.accountId == sel;
         case 'internal':
           return t.fromAccountId == sel || t.toAccountId == sel;
@@ -221,31 +250,23 @@ class _TransactionsPageState extends State<TransactionsPage> {
       children: [
         Expanded(
           child: InputDecorator(
-            decoration: const InputDecoration(labelText: 'Viewing account', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Viewing account',
+              border: OutlineInputBorder(),
+            ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int?>(
                 isExpanded: true,
                 value: _selectedAccountId,
                 items: [
-                  const DropdownMenuItem<int?>(value: null, child: Text('All accounts')),
+                  DropdownMenuItem<int?>(
+                    value: null,
+                    child: _allAccountsDropdownItem(),
+                  ),
                   for (final a in accounts)
                     DropdownMenuItem<int?>(
                       value: a.id,
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 12,
-                            backgroundColor: _parseColor(a.color),
-                            child: Icon(
-                              kAccountIconChoices[a.icon] ?? Icons.account_balance,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(a.name),
-                        ],
-                      ),
+                      child: _accountDropdownItem(a),
                     ),
                 ],
                 onChanged: (v) => setState(() => _selectedAccountId = v),
@@ -253,13 +274,128 @@ class _TransactionsPageState extends State<TransactionsPage> {
             ),
           ),
         ),
-        if (_selectedAccountId != null) ...[
+      ],
+    );
+  }
+
+  Widget _accountDropdownItem(AccountRow a) {
+    final cache = widget.balanceCache;
+    final cur =
+        widget.currenciesRepo.getByCode(a.currencyCode) ??
+        CurrencyRow(
+          code: a.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
+    final amtMinor = cache?.getBalanceMinor(a.id);
+    final amtStr = amtMinor == null
+        ? ''
+        : formatMinorUnits(amtMinor.abs(), cur);
+    final amtColor = (amtMinor ?? 0) >= 0
+        ? Colors.green.shade700
+        : Colors.red.shade700;
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 12,
+          backgroundColor: _parseColor(a.color),
+          child: Icon(
+            kAccountIconChoices[a.icon] ?? Icons.account_balance,
+            color: Colors.white,
+            size: 16,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Text(a.name, overflow: TextOverflow.ellipsis)),
+        if (_selectedAccountId == a.id && amtMinor != null) ...[
           const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: () => setState(() => _selectedAccountId = null),
-            child: const Text('Clear'),
+          Text(
+            amtStr,
+            style: TextStyle(
+              color: amtColor,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _allAccountsDropdownItem() {
+    final accounts = widget.accountsRepo.listAll();
+    final cache = widget.balanceCache;
+    // Only show total if there is exactly one currency across accounts.
+    String? totalStr;
+    Color? amtColor;
+    if (cache != null && accounts.isNotEmpty) {
+      final codes = {for (final a in accounts) a.currencyCode};
+      if (codes.length == 1) {
+        final code = codes.first;
+        final cur =
+            widget.currenciesRepo.getByCode(code) ??
+            CurrencyRow(
+              code: code,
+              symbol: '',
+              symbolPosition: 'before',
+              decimalPlaces: 2,
+            );
+        var sumMinor = 0;
+        for (final a in accounts) {
+          sumMinor += cache.getBalanceMinor(a.id);
+        }
+        totalStr = formatMinorUnits(sumMinor.abs(), cur);
+        amtColor = sumMinor >= 0 ? Colors.green.shade700 : Colors.red.shade700;
+      }
+    }
+    return Row(
+      children: [
+        const Icon(Icons.all_inbox, size: 18),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text('All accounts', overflow: TextOverflow.ellipsis),
+        ),
+        if (_selectedAccountId == null && totalStr != null) ...[
+          const SizedBox(width: 8),
+          Text(
+            totalStr,
+            style: TextStyle(
+              color: amtColor,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _balancesSummary() {
+    if (_selectedAccountId != null) return const SizedBox.shrink();
+    final cache = widget.balanceCache;
+    if (cache == null) return const SizedBox.shrink();
+    final accounts = widget.accountsRepo.listAll();
+    if (accounts.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final a in accounts)
+          _AccountBalanceChip(
+            name: a.name,
+            color: _parseColor(a.color),
+            iconKey: a.icon,
+            amountMinor: cache.getBalanceMinor(a.id),
+            currency:
+                widget.currenciesRepo.getByCode(a.currencyCode) ??
+                CurrencyRow(
+                  code: a.currencyCode,
+                  symbol: '',
+                  symbolPosition: 'before',
+                  decimalPlaces: 2,
+                ),
+          ),
       ],
     );
   }
@@ -300,6 +436,8 @@ class _TransactionTile extends StatelessWidget {
         return 'Outbound';
       case 'internal':
         return 'Transfer';
+      case 'rebalance':
+        return 'Rebalance';
       default:
         return tx.kind;
     }
@@ -314,7 +452,10 @@ class _TransactionTile extends StatelessWidget {
       return CircleAvatar(backgroundColor: bg, child: Text(type.iconValue));
     }
     final icon = kAccountIconChoices[type.iconValue] ?? Icons.category;
-    return CircleAvatar(backgroundColor: bg, child: Icon(icon, color: Colors.white));
+    return CircleAvatar(
+      backgroundColor: bg,
+      child: Icon(icon, color: Colors.white),
+    );
   }
 
   String _buildSubtitle() {
@@ -323,17 +464,26 @@ class _TransactionTile extends StatelessWidget {
     switch (tx.kind) {
       case 'inbound':
       case 'outbound':
+      case 'rebalance':
         final acctId = tx.accountId!;
         final acct = accountsRepo.listAll().firstWhere((a) => a.id == acctId);
         final bits = [acct.name, if (type != null) type.name, when];
-        final head = tx.description == null || tx.description!.isEmpty ? null : tx.description;
+        final head = tx.description == null || tx.description!.isEmpty
+            ? null
+            : tx.description;
         return head == null ? bits.join(' • ') : '$head\n${bits.join(' • ')}';
       case 'internal':
-        final from = accountsRepo.listAll().firstWhere((a) => a.id == tx.fromAccountId);
-        final to = accountsRepo.listAll().firstWhere((a) => a.id == tx.toAccountId);
+        final from = accountsRepo.listAll().firstWhere(
+          (a) => a.id == tx.fromAccountId,
+        );
+        final to = accountsRepo.listAll().firstWhere(
+          (a) => a.id == tx.toAccountId,
+        );
         final path = '${from.name} → ${to.name}';
         final bits = [path, if (type != null) type.name, when];
-        final head = tx.description == null || tx.description!.isEmpty ? null : tx.description;
+        final head = tx.description == null || tx.description!.isEmpty
+            ? null
+            : tx.description;
         return head == null ? bits.join(' • ') : '$head\n${bits.join(' • ')}';
       default:
         return when;
@@ -344,25 +494,53 @@ class _TransactionTile extends StatelessWidget {
     switch (tx.kind) {
       case 'inbound':
       case 'outbound':
+      case 'rebalance':
         final acctId = tx.accountId!;
         final acct = accountsRepo.listAll().firstWhere((a) => a.id == acctId);
-        final cur = currenciesRepo.getByCode(acct.currencyCode) ??
-            CurrencyRow(code: acct.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
-        final s = formatMinorUnits(tx.amount ?? 0, cur);
+        final cur =
+            currenciesRepo.getByCode(acct.currencyCode) ??
+            CurrencyRow(
+              code: acct.currencyCode,
+              symbol: '',
+              symbolPosition: 'before',
+              decimalPlaces: 2,
+            );
+        final amt = tx.amount ?? 0;
+        final s = formatMinorUnits(amt.abs(), cur);
         final prominent = TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: tx.kind == 'inbound' ? Colors.green.shade700 : Colors.red.shade700,
+          color:
+              (tx.kind == 'inbound' ||
+                  (tx.kind == 'rebalance' && (tx.amount ?? 0) > 0))
+              ? Colors.green.shade700
+              : Colors.red.shade700,
           fontFeatures: const [FontFeature.tabularFigures()],
         );
         return Text(s, style: prominent, textAlign: TextAlign.right);
       case 'internal':
-        final from = accountsRepo.listAll().firstWhere((a) => a.id == tx.fromAccountId);
-        final to = accountsRepo.listAll().firstWhere((a) => a.id == tx.toAccountId);
-        final fromCur = currenciesRepo.getByCode(from.currencyCode) ??
-            CurrencyRow(code: from.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
-        final toCur = currenciesRepo.getByCode(to.currencyCode) ??
-            CurrencyRow(code: to.currencyCode, symbol: '', symbolPosition: 'before', decimalPlaces: 2);
+        final from = accountsRepo.listAll().firstWhere(
+          (a) => a.id == tx.fromAccountId,
+        );
+        final to = accountsRepo.listAll().firstWhere(
+          (a) => a.id == tx.toAccountId,
+        );
+        final fromCur =
+            currenciesRepo.getByCode(from.currencyCode) ??
+            CurrencyRow(
+              code: from.currencyCode,
+              symbol: '',
+              symbolPosition: 'before',
+              decimalPlaces: 2,
+            );
+        final toCur =
+            currenciesRepo.getByCode(to.currencyCode) ??
+            CurrencyRow(
+              code: to.currencyCode,
+              symbol: '',
+              symbolPosition: 'before',
+              decimalPlaces: 2,
+            );
         if (tx.amount != null) {
           // same currency: one prominent line
           final s = formatMinorUnits(tx.amount!, fromCur);
@@ -406,6 +584,62 @@ class _TransactionTile extends StatelessWidget {
       default:
         return const SizedBox.shrink();
     }
+  }
+}
+
+class _AccountBalanceChip extends StatelessWidget {
+  const _AccountBalanceChip({
+    required this.name,
+    required this.color,
+    required this.iconKey,
+    required this.amountMinor,
+    required this.currency,
+  });
+
+  final String name;
+  final Color color;
+  final String iconKey;
+  final int amountMinor;
+  final CurrencyRow currency;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = formatMinorUnits(amountMinor.abs(), currency);
+    final amtColor = amountMinor >= 0
+        ? Colors.green.shade700
+        : Colors.red.shade700;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 10,
+            backgroundColor: color,
+            child: Icon(
+              kAccountIconChoices[iconKey] ?? Icons.account_balance,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(name),
+          const SizedBox(width: 8),
+          Text(
+            s,
+            style: TextStyle(
+              color: amtColor,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -754,14 +988,21 @@ class _ManageTypesPageState extends State<_ManageTypesPage> {
                   child: const Icon(Icons.delete, color: Colors.white),
                 ),
                 confirmDismiss: (_) async {
-                  final ok = await showDialog<bool>(
+                  final ok =
+                      await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: Text('Delete ${t.name}?'),
                           content: const Text('This cannot be undone.'),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete'),
+                            ),
                           ],
                         ),
                       ) ??
@@ -775,7 +1016,9 @@ class _ManageTypesPageState extends State<_ManageTypesPage> {
                 child: ListTile(
                   leading: _typeAvatar(t),
                   title: Text(t.name),
-                  subtitle: Text('${t.appliesTo} • ${t.iconKind}:${t.iconValue} • ${t.color}'),
+                  subtitle: Text(
+                    '${t.appliesTo} • ${t.iconKind}:${t.iconValue} • ${t.color}',
+                  ),
                   trailing: IconButton(
                     icon: const Icon(Icons.edit),
                     onPressed: () async {
@@ -830,7 +1073,10 @@ class _ManageTypesPageState extends State<_ManageTypesPage> {
       return CircleAvatar(backgroundColor: bg, child: Text(t.iconValue));
     }
     final icon = kAccountIconChoices[t.iconValue] ?? Icons.category;
-    return CircleAvatar(backgroundColor: bg, child: Icon(icon, color: Colors.white));
+    return CircleAvatar(
+      backgroundColor: bg,
+      child: Icon(icon, color: Colors.white),
+    );
   }
 }
 
@@ -864,9 +1110,21 @@ class _NewTypeDialogState extends State<_NewTypeDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder())),
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
-            TextField(controller: _color, decoration: const InputDecoration(labelText: 'Color (#RRGGBB)', border: OutlineInputBorder())),
+            TextField(
+              controller: _color,
+              decoration: const InputDecoration(
+                labelText: 'Color (#RRGGBB)',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
             _iconRow(),
             const SizedBox(height: 12),
@@ -875,7 +1133,10 @@ class _NewTypeDialogState extends State<_NewTypeDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             if (_name.text.trim().isEmpty) return;
@@ -901,7 +1162,10 @@ class _NewTypeDialogState extends State<_NewTypeDialog> {
       children: [
         Expanded(
           child: InputDecorator(
-            decoration: const InputDecoration(labelText: 'Icon kind', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Icon kind',
+              border: OutlineInputBorder(),
+            ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _iconKind,
@@ -931,7 +1195,10 @@ class _NewTypeDialogState extends State<_NewTypeDialog> {
 
   Widget _appliesToRow() {
     return InputDecorator(
-      decoration: const InputDecoration(labelText: 'Applies to', border: OutlineInputBorder()),
+      decoration: const InputDecoration(
+        labelText: 'Applies to',
+        border: OutlineInputBorder(),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _appliesTo,
@@ -984,31 +1251,52 @@ class _EditTypeDialogState extends State<_EditTypeDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Edit ${widget.initial.name}')
-          ,
+      title: Text('Edit ${widget.initial.name}'),
       content: SizedBox(
         width: 380,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder())),
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
-            TextField(controller: _color, decoration: const InputDecoration(labelText: 'Color (#RRGGBB)', border: OutlineInputBorder())),
+            TextField(
+              controller: _color,
+              decoration: const InputDecoration(
+                labelText: 'Color (#RRGGBB)',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Icon kind', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Icon kind',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _iconKind,
                         isExpanded: true,
                         items: const [
-                          DropdownMenuItem(value: 'material', child: Text('material')),
-                          DropdownMenuItem(value: 'emoji', child: Text('emoji')),
+                          DropdownMenuItem(
+                            value: 'material',
+                            child: Text('material'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'emoji',
+                            child: Text('emoji'),
+                          ),
                         ],
-                        onChanged: (v) => setState(() => _iconKind = v ?? 'material'),
+                        onChanged: (v) =>
+                            setState(() => _iconKind = v ?? 'material'),
                       ),
                     ),
                   ),
@@ -1018,7 +1306,9 @@ class _EditTypeDialogState extends State<_EditTypeDialog> {
                   child: TextField(
                     controller: _iconValue,
                     decoration: InputDecoration(
-                      labelText: _iconKind == 'emoji' ? 'Emoji' : 'Material icon name',
+                      labelText: _iconKind == 'emoji'
+                          ? 'Emoji'
+                          : 'Material icon name',
                       border: const OutlineInputBorder(),
                     ),
                   ),
@@ -1027,7 +1317,10 @@ class _EditTypeDialogState extends State<_EditTypeDialog> {
             ),
             const SizedBox(height: 12),
             InputDecorator(
-              decoration: const InputDecoration(labelText: 'Applies to', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Applies to',
+                border: OutlineInputBorder(),
+              ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _appliesTo,
@@ -1035,8 +1328,14 @@ class _EditTypeDialogState extends State<_EditTypeDialog> {
                   items: const [
                     DropdownMenuItem(value: 'any', child: Text('any')),
                     DropdownMenuItem(value: 'inbound', child: Text('inbound')),
-                    DropdownMenuItem(value: 'outbound', child: Text('outbound')),
-                    DropdownMenuItem(value: 'internal', child: Text('internal')),
+                    DropdownMenuItem(
+                      value: 'outbound',
+                      child: Text('outbound'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'internal',
+                      child: Text('internal'),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _appliesTo = v ?? 'any'),
                 ),
@@ -1046,7 +1345,10 @@ class _EditTypeDialogState extends State<_EditTypeDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             Navigator.pop(
@@ -1073,7 +1375,13 @@ class _TypeFormValue {
   final String iconKind;
   final String iconValue;
   final String appliesTo;
-  _TypeFormValue({required this.name, required this.color, required this.iconKind, required this.iconValue, required this.appliesTo});
+  _TypeFormValue({
+    required this.name,
+    required this.color,
+    required this.iconKind,
+    required this.iconValue,
+    required this.appliesTo,
+  });
 }
 
 Color _parseColor(String hex) {

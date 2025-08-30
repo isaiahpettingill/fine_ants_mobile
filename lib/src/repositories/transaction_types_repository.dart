@@ -92,4 +92,3 @@ class TransactionTypesRepository {
     db.execute('DELETE FROM transaction_types WHERE id = ?', [id]);
   }
 }
-

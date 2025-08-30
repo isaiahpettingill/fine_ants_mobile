@@ -1,4 +1,5 @@
 import 'package:sqlite3/sqlite3.dart' as sqlite;
+import '../services/balance_cache.dart';
 
 class TransactionRow {
   final int id;
@@ -30,7 +31,8 @@ class TransactionRow {
 
 class TransactionsRepository {
   final sqlite.Database db;
-  TransactionsRepository(this.db);
+  final BalanceCache? balanceCache;
+  TransactionsRepository(this.db, {this.balanceCache});
 
   List<TransactionRow> listRecent({int limit = 100}) {
     final result = db.select(
@@ -67,7 +69,14 @@ class TransactionsRepository {
       'INSERT INTO transactions (kind, account_id, amount, occurred_at, type_id, description) VALUES (\'inbound\', ?, ?, ?, ?, ?)',
     );
     try {
-      stmt.execute([accountId, amountMinor, occurredAt.toIso8601String(), typeId, description]);
+      stmt.execute([
+        accountId,
+        amountMinor,
+        occurredAt.toIso8601String(),
+        typeId,
+        description,
+      ]);
+      balanceCache?.applyDelta(accountId, amountMinor);
     } finally {
       stmt.dispose();
     }
@@ -85,7 +94,14 @@ class TransactionsRepository {
       'INSERT INTO transactions (kind, account_id, amount, occurred_at, type_id, description) VALUES (\'outbound\', ?, ?, ?, ?, ?)',
     );
     try {
-      stmt.execute([accountId, amountMinor, occurredAt.toIso8601String(), typeId, description]);
+      stmt.execute([
+        accountId,
+        amountMinor,
+        occurredAt.toIso8601String(),
+        typeId,
+        description,
+      ]);
+      balanceCache?.applyDelta(accountId, -amountMinor);
     } finally {
       stmt.dispose();
     }
@@ -104,7 +120,16 @@ class TransactionsRepository {
       'INSERT INTO transactions (kind, from_account_id, to_account_id, amount, occurred_at, type_id, description) VALUES (\'internal\', ?, ?, ?, ?, ?, ?)',
     );
     try {
-      stmt.execute([fromAccountId, toAccountId, amountMinor, occurredAt.toIso8601String(), typeId, description]);
+      stmt.execute([
+        fromAccountId,
+        toAccountId,
+        amountMinor,
+        occurredAt.toIso8601String(),
+        typeId,
+        description,
+      ]);
+      balanceCache?.applyDelta(fromAccountId, -amountMinor);
+      balanceCache?.applyDelta(toAccountId, amountMinor);
     } finally {
       stmt.dispose();
     }
@@ -124,15 +149,113 @@ class TransactionsRepository {
       'INSERT INTO transactions (kind, from_account_id, to_account_id, out_amount, in_amount, occurred_at, type_id, description) VALUES (\'internal\', ?, ?, ?, ?, ?, ?, ?)',
     );
     try {
-      stmt.execute([fromAccountId, toAccountId, outAmountMinor, inAmountMinor, occurredAt.toIso8601String(), typeId, description]);
+      stmt.execute([
+        fromAccountId,
+        toAccountId,
+        outAmountMinor,
+        inAmountMinor,
+        occurredAt.toIso8601String(),
+        typeId,
+        description,
+      ]);
+      balanceCache?.applyDelta(fromAccountId, -outAmountMinor);
+      balanceCache?.applyDelta(toAccountId, inAmountMinor);
     } finally {
       stmt.dispose();
     }
     return db.lastInsertRowId;
   }
 
+  /// Creates a rebalance transaction for a single account. The [deltaMinor]
+  /// may be positive (to add funds) or negative (to remove funds).
+  int createRebalance({
+    required int accountId,
+    required int deltaMinor,
+    required DateTime occurredAt,
+    String? description,
+  }) {
+    final stmt = db.prepare(
+      "INSERT INTO transactions (kind, account_id, amount, occurred_at, type_id, description) VALUES ('rebalance', ?, ?, ?, NULL, ?)",
+    );
+    try {
+      stmt.execute([
+        accountId,
+        deltaMinor,
+        occurredAt.toIso8601String(),
+        description,
+      ]);
+      balanceCache?.applyDelta(accountId, deltaMinor);
+    } finally {
+      stmt.dispose();
+    }
+    return db.lastInsertRowId;
+  }
+
+  /// Computes the current balance (in minor units) for an account by summing
+  /// all related transactions. Rebalance deltas are applied as signed amounts.
+  int getAccountBalanceMinor(int accountId) {
+    // Inbound sum
+    final inbound =
+        db.select(
+              "SELECT COALESCE(SUM(amount),0) AS s FROM transactions WHERE kind='inbound' AND account_id=?",
+              [accountId],
+            ).first['s']
+            as int;
+
+    // Outbound sum
+    final outbound =
+        db.select(
+              "SELECT COALESCE(SUM(amount),0) AS s FROM transactions WHERE kind='outbound' AND account_id=?",
+              [accountId],
+            ).first['s']
+            as int;
+
+    // Internal same-currency (amount not null)
+    final internalOut =
+        db.select(
+              "SELECT COALESCE(SUM(amount),0) AS s FROM transactions WHERE kind='internal' AND from_account_id=? AND amount IS NOT NULL",
+              [accountId],
+            ).first['s']
+            as int;
+    final internalIn =
+        db.select(
+              "SELECT COALESCE(SUM(amount),0) AS s FROM transactions WHERE kind='internal' AND to_account_id=? AND amount IS NOT NULL",
+              [accountId],
+            ).first['s']
+            as int;
+
+    // Internal cross-currency (out_amount / in_amount)
+    final internalOutX =
+        db.select(
+              "SELECT COALESCE(SUM(out_amount),0) AS s FROM transactions WHERE kind='internal' AND from_account_id=? AND out_amount IS NOT NULL",
+              [accountId],
+            ).first['s']
+            as int;
+    final internalInX =
+        db.select(
+              "SELECT COALESCE(SUM(in_amount),0) AS s FROM transactions WHERE kind='internal' AND to_account_id=? AND in_amount IS NOT NULL",
+              [accountId],
+            ).first['s']
+            as int;
+
+    // Rebalance sum (signed)
+    final rebalance =
+        db.select(
+              "SELECT COALESCE(SUM(amount),0) AS s FROM transactions WHERE kind='rebalance' AND account_id=?",
+              [accountId],
+            ).first['s']
+            as int;
+
+    return inbound -
+        outbound -
+        internalOut -
+        internalOutX +
+        internalIn +
+        internalInX +
+        rebalance;
+  }
+
   void delete(int id) {
     db.execute('DELETE FROM transactions WHERE id = ?', [id]);
   }
 }
-

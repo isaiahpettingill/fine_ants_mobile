@@ -29,7 +29,7 @@ class CurrenciesRepository {
           symbol: row['symbol'] as String?,
           symbolPosition: row['symbol_position'] as String,
           decimalPlaces: row['decimal_places'] as int,
-        )
+        ),
     ];
   }
 

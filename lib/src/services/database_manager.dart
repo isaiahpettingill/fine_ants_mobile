@@ -33,4 +33,3 @@ class DatabaseManager {
     return p.join(folder, 'fine_ants.db');
   }
 }
-

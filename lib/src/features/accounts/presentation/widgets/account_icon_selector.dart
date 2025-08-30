@@ -145,7 +145,9 @@ class _GridState extends State<_Grid> {
                 child: Container(
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: isSelected ? theme.colorScheme.primary : Colors.grey.shade300,
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : Colors.grey.shade300,
                     ),
                     borderRadius: BorderRadius.circular(8),
                     color: isSelected

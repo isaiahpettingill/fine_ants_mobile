@@ -11,9 +11,7 @@ class SafMirrorService {
 
   static Future<void> persistPermission(String treeUri) async {
     if (!isAndroid) return;
-    await _channel.invokeMethod('persistUriPermission', {
-      'treeUri': treeUri,
-    });
+    await _channel.invokeMethod('persistUriPermission', {'treeUri': treeUri});
   }
 
   static Future<void> writeFileToTree({
@@ -31,4 +29,3 @@ class SafMirrorService {
     });
   }
 }
-

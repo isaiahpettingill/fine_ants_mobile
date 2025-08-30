@@ -14,6 +14,9 @@ import '../repositories/transactions_repository.dart';
 import '../repositories/transaction_types_repository.dart';
 import '../features/transactions/presentation/transactions_page.dart';
 import 'currency_management_page.dart';
+import '../services/balance_cache.dart';
+import '../utils/currency_format.dart';
+import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 class HomePage extends StatefulWidget {
   final Account account;
@@ -30,6 +33,7 @@ class _HomePageState extends State<HomePage> {
   AccountsRepository? _repo;
   List<AccountRow> _accounts = const [];
   int _tabIndex = 0;
+  BalanceCache? _balanceCache;
 
   @override
   void initState() {
@@ -51,12 +55,15 @@ class _HomePageState extends State<HomePage> {
         CreateTransactionTypesMigration(),
         CreateTransactionsMigration(),
         SeedDefaultTransactionTypesMigration(),
+        AddRebalanceKindMigration(),
       ]);
       final repo = AccountsRepository(db.db);
       final rows = repo.listAll();
+      final bal = BalanceCache(db.db);
       setState(() {
         _appDb = db;
         _repo = repo;
+        _balanceCache = bal;
         _accounts = rows;
         _status = 'Database ready';
       });
@@ -68,6 +75,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _refresh() async {
     final repo = _repo;
     if (repo == null) return;
+    _balanceCache?.reloadAll();
     setState(() => _accounts = repo.listAll());
   }
 
@@ -82,7 +90,10 @@ class _HomePageState extends State<HomePage> {
     final width = MediaQuery.of(context).size.width;
     final large = width >= 900;
     final destinations = const [
-      NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'Accounts'),
+      NavigationDestination(
+        icon: Icon(Icons.account_balance_wallet),
+        label: 'Accounts',
+      ),
       NavigationDestination(icon: Icon(Icons.list_alt), label: 'Transactions'),
       NavigationDestination(icon: Icon(Icons.insights), label: 'Stats'),
     ];
@@ -102,18 +113,21 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text(widget.account.name),
         actions: [
-          if (_showSyncButton) IconButton(
-            tooltip: 'Sync all registers',
-            icon: const Icon(Icons.sync),
-            onPressed: () async {
-              final before = ScaffoldMessenger.of(context);
-              before.showSnackBar(const SnackBar(content: Text('Syncing registers…')));
-              final count = await SyncService.syncAll();
-              before.showSnackBar(
-                SnackBar(content: Text('Synced $count register(s)')),
-              );
-            },
-          ),
+          if (_showSyncButton)
+            IconButton(
+              tooltip: 'Sync all registers',
+              icon: const Icon(Icons.sync),
+              onPressed: () async {
+                final before = ScaffoldMessenger.of(context);
+                before.showSnackBar(
+                  const SnackBar(content: Text('Syncing registers…')),
+                );
+                final count = await SyncService.syncAll();
+                before.showSnackBar(
+                  SnackBar(content: Text('Synced $count register(s)')),
+                );
+              },
+            ),
         ],
       ),
       drawer: _buildDrawer(context),
@@ -125,9 +139,18 @@ class _HomePageState extends State<HomePage> {
                   onDestinationSelected: (i) => setState(() => _tabIndex = i),
                   labelType: NavigationRailLabelType.all,
                   destinations: const [
-                    NavigationRailDestination(icon: Icon(Icons.account_balance_wallet), label: Text('Accounts')),
-                    NavigationRailDestination(icon: Icon(Icons.list_alt), label: Text('Transactions')),
-                    NavigationRailDestination(icon: Icon(Icons.insights), label: Text('Stats')),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.account_balance_wallet),
+                      label: Text('Accounts'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.list_alt),
+                      label: Text('Transactions'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.insights),
+                      label: Text('Stats'),
+                    ),
                   ],
                 ),
                 const VerticalDivider(width: 1),
@@ -161,14 +184,15 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-Widget _buildAccountsTabFallback(String message) => Center(child: Text(message));
+Widget _buildAccountsTabFallback(String message) =>
+    Center(child: Text(message));
 
 extension on _HomePageState {
   Widget _buildTransactionsTab() {
     final db = _appDb?.db;
     if (db == null) return _buildAccountsTabFallback(_status);
     final accountsRepo = AccountsRepository(db);
-    final txRepo = TransactionsRepository(db);
+    final txRepo = TransactionsRepository(db, balanceCache: _balanceCache);
     final curRepo = CurrenciesRepository(db);
     final typesRepo = TransactionTypesRepository(db);
     return TransactionsPage(
@@ -176,6 +200,7 @@ extension on _HomePageState {
       txRepo: txRepo,
       currenciesRepo: curRepo,
       typesRepo: typesRepo,
+      balanceCache: _balanceCache,
     );
   }
 
@@ -202,17 +227,34 @@ extension on _HomePageState {
           for (final a in _accounts)
             Dismissible(
               key: ValueKey('acct_${a.id}'),
-              background: Container(color: Colors.red, alignment: Alignment.centerLeft, padding: const EdgeInsets.only(left: 16), child: const Icon(Icons.delete, color: Colors.white)),
-              secondaryBackground: Container(color: Colors.red, alignment: Alignment.centerRight, padding: const EdgeInsets.only(right: 16), child: const Icon(Icons.delete, color: Colors.white)),
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(left: 16),
+                child: const Icon(Icons.delete, color: Colors.white),
+              ),
+              secondaryBackground: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                child: const Icon(Icons.delete, color: Colors.white),
+              ),
               confirmDismiss: (_) async {
-                final ok = await showDialog<bool>(
+                final ok =
+                    await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
                         title: const Text('Delete account?'),
                         content: Text('Delete "${a.name}"?'),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Delete'),
+                          ),
                         ],
                       ),
                     ) ??
@@ -226,15 +268,25 @@ extension on _HomePageState {
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: _parseColor(a.color),
-                  child: Icon(kAccountIconChoices[a.icon] ?? Icons.account_balance_wallet, color: Colors.white),
+                  child: Icon(
+                    kAccountIconChoices[a.icon] ?? Icons.account_balance_wallet,
+                    color: Colors.white,
+                  ),
                 ),
                 title: Text(a.name),
-                subtitle: Text([
-                  if (a.accountType.isNotEmpty) a.accountType,
-                  a.currencyCode,
-                  a.icon,
-                  a.color,
-                ].join(' • ')),
+                subtitle: Text(
+                  [
+                    if (a.accountType.isNotEmpty) a.accountType,
+                    a.currencyCode,
+                    a.icon,
+                    a.color,
+                  ].join(' • '),
+                ),
+                trailing: _AccountBalancePill(
+                  account: a,
+                  db: _appDb!.db,
+                  balanceCache: _balanceCache!,
+                ),
                 onTap: () async {
                   final changed = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
@@ -249,6 +301,49 @@ extension on _HomePageState {
             ),
           const SizedBox(height: 80),
         ],
+      ),
+    );
+  }
+}
+
+class _AccountBalancePill extends StatelessWidget {
+  const _AccountBalancePill({
+    required this.account,
+    required this.db,
+    required this.balanceCache,
+  });
+
+  final AccountRow account;
+  final sqlite.Database db;
+  final BalanceCache balanceCache;
+
+  @override
+  Widget build(BuildContext context) {
+    final curRepo = CurrenciesRepository(db);
+    final cur =
+        curRepo.getByCode(account.currencyCode) ??
+        CurrencyRow(
+          code: account.currencyCode,
+          symbol: '',
+          symbolPosition: 'before',
+          decimalPlaces: 2,
+        );
+    final minor = balanceCache.getBalanceMinor(account.id);
+    final s = formatMinorUnits(minor.abs(), cur);
+    final color = minor >= 0 ? Colors.green.shade700 : Colors.red.shade700;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        s,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
       ),
     );
   }
@@ -272,7 +367,10 @@ extension _DrawerExt on _HomePageState {
           children: [
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Registers', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text(
+                'Registers',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ),
             Expanded(
               child: ListView(
@@ -281,10 +379,16 @@ extension _DrawerExt on _HomePageState {
                     ListTile(
                       leading: const Icon(Icons.folder),
                       title: Text(reg.name),
-                      subtitle: Text(reg.dbPath, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                        reg.dbPath,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       onTap: () {
                         Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => HomePage(account: reg)),
+                          MaterialPageRoute(
+                            builder: (_) => HomePage(account: reg),
+                          ),
                         );
                       },
                     ),
@@ -294,7 +398,9 @@ extension _DrawerExt on _HomePageState {
                     title: const Text('Sync all registers'),
                     onTap: () async {
                       final before = ScaffoldMessenger.of(context);
-                      before.showSnackBar(const SnackBar(content: Text('Syncing registers.')));
+                      before.showSnackBar(
+                        const SnackBar(content: Text('Syncing registers.')),
+                      );
                       final count = await SyncService.syncAll();
                       before.showSnackBar(
                         SnackBar(content: Text('Synced $count register(s)')),
@@ -309,7 +415,9 @@ extension _DrawerExt on _HomePageState {
                       if (db == null) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => CurrencyManagementPage(repo: CurrenciesRepository(db)),
+                          builder: (_) => CurrencyManagementPage(
+                            repo: CurrenciesRepository(db),
+                          ),
                         ),
                       );
                     },

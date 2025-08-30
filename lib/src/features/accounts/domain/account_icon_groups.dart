@@ -46,10 +46,7 @@ const _finance = [
   'currency_yuan',
 ];
 
-const _crypto = [
-  'currency_bitcoin',
-  'token',
-];
+const _crypto = ['currency_bitcoin', 'token'];
 
 const _commerce = [
   'shopping_bag',
@@ -167,4 +164,3 @@ final List<AccountIconGroup> kAccountIconGroups = [
   AccountIconGroup('Travel', _pick(_travel)),
   AccountIconGroup('Tech', _pick(_tech)),
 ];
-

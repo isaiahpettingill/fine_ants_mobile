@@ -46,18 +46,29 @@ class _CurrencyManagementPageState extends State<CurrencyManagementPage> {
                   if (inUse) {
                     if (!mounted) return false;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Cannot delete ${c.code}: currency in use')),
+                      SnackBar(
+                        content: Text(
+                          'Cannot delete ${c.code}: currency in use',
+                        ),
+                      ),
                     );
                     return false;
                   }
-                  final ok = await showDialog<bool>(
+                  final ok =
+                      await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: Text('Delete ${c.code}?'),
                           content: const Text('This cannot be undone.'),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete'),
+                            ),
                           ],
                         ),
                       ) ??
@@ -163,28 +174,44 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
             TextField(
               controller: _code,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(labelText: 'Code (e.g., USD, BTC)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Code (e.g., USD, BTC)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _symbol,
-              decoration: const InputDecoration(labelText: 'Symbol (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Symbol (optional)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Symbol position', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Symbol position',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _position,
                         isExpanded: true,
                         items: const [
-                          DropdownMenuItem(value: 'before', child: Text('before')),
-                          DropdownMenuItem(value: 'after', child: Text('after')),
+                          DropdownMenuItem(
+                            value: 'before',
+                            child: Text('before'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'after',
+                            child: Text('after'),
+                          ),
                         ],
-                        onChanged: (v) => setState(() => _position = v ?? 'before'),
+                        onChanged: (v) =>
+                            setState(() => _position = v ?? 'before'),
                       ),
                     ),
                   ),
@@ -192,13 +219,19 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Decimals', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Decimals',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
                         value: _decimals,
                         isExpanded: true,
                         items: const [0, 1, 2, 3, 4, 5, 6, 7, 8]
-                            .map((d) => DropdownMenuItem(value: d, child: Text('$d')))
+                            .map(
+                              (d) =>
+                                  DropdownMenuItem(value: d, child: Text('$d')),
+                            )
                             .toList(),
                         onChanged: (v) => setState(() => _decimals = v ?? 2),
                       ),
@@ -211,7 +244,10 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             final code = _code.text.trim().toUpperCase();
@@ -220,7 +256,9 @@ class _NewCurrencyDialogState extends State<_NewCurrencyDialog> {
               context,
               CurrencyRow(
                 code: code,
-                symbol: _symbol.text.trim().isEmpty ? null : _symbol.text.trim(),
+                symbol: _symbol.text.trim().isEmpty
+                    ? null
+                    : _symbol.text.trim(),
                 symbolPosition: _position,
                 decimalPlaces: _decimals,
               ),
@@ -271,23 +309,36 @@ class _EditCurrencyDialogState extends State<_EditCurrencyDialog> {
           children: [
             TextField(
               controller: _symbol,
-              decoration: const InputDecoration(labelText: 'Symbol (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Symbol (optional)',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Symbol position', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Symbol position',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _position,
                         isExpanded: true,
                         items: const [
-                          DropdownMenuItem(value: 'before', child: Text('before')),
-                          DropdownMenuItem(value: 'after', child: Text('after')),
+                          DropdownMenuItem(
+                            value: 'before',
+                            child: Text('before'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'after',
+                            child: Text('after'),
+                          ),
                         ],
-                        onChanged: (v) => setState(() => _position = v ?? 'before'),
+                        onChanged: (v) =>
+                            setState(() => _position = v ?? 'before'),
                       ),
                     ),
                   ),
@@ -295,13 +346,19 @@ class _EditCurrencyDialogState extends State<_EditCurrencyDialog> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Decimals', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(
+                      labelText: 'Decimals',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
                         value: _decimals,
                         isExpanded: true,
                         items: const [0, 1, 2, 3, 4, 5, 6, 7, 8]
-                            .map((d) => DropdownMenuItem(value: d, child: Text('$d')))
+                            .map(
+                              (d) =>
+                                  DropdownMenuItem(value: d, child: Text('$d')),
+                            )
                             .toList(),
                         onChanged: (v) => setState(() => _decimals = v ?? 2),
                       ),
@@ -314,14 +371,19 @@ class _EditCurrencyDialogState extends State<_EditCurrencyDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: () {
             Navigator.pop(
               context,
               CurrencyRow(
                 code: widget.initial.code,
-                symbol: _symbol.text.trim().isEmpty ? null : _symbol.text.trim(),
+                symbol: _symbol.text.trim().isEmpty
+                    ? null
+                    : _symbol.text.trim(),
                 symbolPosition: _position,
                 decimalPlaces: _decimals,
               ),

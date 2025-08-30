@@ -23,4 +23,3 @@ class AppDb {
     _db = null;
   }
 }
-

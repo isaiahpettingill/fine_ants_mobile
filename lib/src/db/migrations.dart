@@ -41,10 +41,10 @@ class MigrationRunner {
       db.execute('BEGIN');
       try {
         await Future.sync(() => m.up(db));
-        db.execute(
-          'INSERT INTO schema_migrations (id, name) VALUES (?, ?)',
-          [m.id, m.name],
-        );
+        db.execute('INSERT INTO schema_migrations (id, name) VALUES (?, ?)', [
+          m.id,
+          m.name,
+        ]);
         db.execute('COMMIT');
       } catch (_) {
         db.execute('ROLLBACK');
@@ -94,7 +94,9 @@ class AddAccountTypeToAccountsMigration implements Migration {
   @override
   Future<void> up(sqlite.Database db) async {
     if (!_columnExists(db, 'accounts', 'account_type')) {
-      db.execute("ALTER TABLE accounts ADD COLUMN account_type TEXT NOT NULL DEFAULT ''");
+      db.execute(
+        "ALTER TABLE accounts ADD COLUMN account_type TEXT NOT NULL DEFAULT ''",
+      );
     }
   }
 }
@@ -181,7 +183,13 @@ class SeedDefaultTransactionTypesMigration implements Migration {
 
   @override
   Future<void> up(sqlite.Database db) async {
-    void insert(String name, String color, String iconKind, String iconValue, String appliesTo) {
+    void insert(
+      String name,
+      String color,
+      String iconKind,
+      String iconValue,
+      String appliesTo,
+    ) {
       db.execute(
         'INSERT OR IGNORE INTO transaction_types (name, color, icon_kind, icon_value, applies_to) VALUES (?, ?, ?, ?, ?)',
         [name, color, iconKind, iconValue, appliesTo],
@@ -204,6 +212,7 @@ class SeedDefaultTransactionTypesMigration implements Migration {
     insert('Transfer', '#607D8B', 'material', 'compare_arrows', 'internal');
   }
 }
+
 class CreateTransactionTypesMigration implements Migration {
   @override
   int get id => 6;
@@ -275,9 +284,108 @@ class CreateTransactionsMigration implements Migration {
     ''');
 
     // Useful indices
-    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at DESC)");
-    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id)");
-    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_from_to ON transactions(from_account_id, to_account_id)");
-    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type_id)");
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at DESC)",
+    );
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id)",
+    );
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_from_to ON transactions(from_account_id, to_account_id)",
+    );
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type_id)",
+    );
+  }
+}
+
+/// Adds support for a new transaction kind: 'rebalance'.
+///
+/// SQLite can't alter CHECK constraints directly, so we recreate the table if
+/// needed. This migration is idempotent: if the existing table already includes
+/// 'rebalance' in its CHECK, we skip.
+class AddRebalanceKindMigration implements Migration {
+  @override
+  int get id => 9;
+
+  @override
+  String get name => 'add_rebalance_kind_to_transactions';
+
+  bool _transactionsHasRebalance(sqlite.Database db) {
+    final rows = db.select(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='transactions' LIMIT 1",
+    );
+    if (rows.isEmpty) return false;
+    final sql = (rows.first['sql'] as String?) ?? '';
+    return sql.contains("'rebalance'");
+  }
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    if (_transactionsHasRebalance(db)) return; // idempotent
+
+    // Create new table with updated CHECK to include 'rebalance'.
+    db.execute('''
+      CREATE TABLE transactions_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL CHECK(kind IN ('inbound','outbound','internal','rebalance')),
+        -- For inbound/outbound/rebalance
+        account_id INTEGER NULL,
+        amount INTEGER NULL,
+        -- For internal transfers
+        from_account_id INTEGER NULL,
+        to_account_id INTEGER NULL,
+        out_amount INTEGER NULL,
+        in_amount INTEGER NULL,
+        -- Optional linkage
+        type_id INTEGER NULL,
+        description TEXT NULL,
+        occurred_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+
+        FOREIGN KEY(account_id) REFERENCES accounts(id),
+        FOREIGN KEY(from_account_id) REFERENCES accounts(id),
+        FOREIGN KEY(to_account_id) REFERENCES accounts(id),
+        FOREIGN KEY(type_id) REFERENCES transaction_types(id),
+
+        CHECK(
+          (kind = 'inbound' AND account_id IS NOT NULL AND amount IS NOT NULL AND from_account_id IS NULL AND to_account_id IS NULL AND out_amount IS NULL AND in_amount IS NULL)
+          OR
+          (kind = 'outbound' AND account_id IS NOT NULL AND amount IS NOT NULL AND from_account_id IS NULL AND to_account_id IS NULL AND out_amount IS NULL AND in_amount IS NULL)
+          OR
+          (kind = 'rebalance' AND account_id IS NOT NULL AND amount IS NOT NULL AND from_account_id IS NULL AND to_account_id IS NULL AND out_amount IS NULL AND in_amount IS NULL)
+          OR
+          (kind = 'internal' AND account_id IS NULL AND from_account_id IS NOT NULL AND to_account_id IS NOT NULL AND from_account_id <> to_account_id AND (
+              (amount IS NOT NULL AND out_amount IS NULL AND in_amount IS NULL) OR
+              (amount IS NULL AND out_amount IS NOT NULL AND in_amount IS NOT NULL)
+          ))
+        )
+      );
+    ''');
+
+    // Copy data
+    db.execute('''
+      INSERT INTO transactions_new (id, kind, account_id, amount, from_account_id, to_account_id, out_amount, in_amount, type_id, description, occurred_at, created_at)
+      SELECT id, kind, account_id, amount, from_account_id, to_account_id, out_amount, in_amount, type_id, description, occurred_at, created_at
+      FROM transactions;
+    ''');
+
+    // Swap tables
+    db.execute('DROP TABLE transactions');
+    db.execute('ALTER TABLE transactions_new RENAME TO transactions');
+
+    // Recreate indices
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at DESC)",
+    );
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id)",
+    );
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_from_to ON transactions(from_account_id, to_account_id)",
+    );
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type_id)",
+    );
   }
 }
