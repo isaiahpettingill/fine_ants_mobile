@@ -377,12 +377,10 @@ extension on _HomePageState {
     if (db == null) return _buildAccountsTabFallback(_status);
     final accountsRepo = AccountsRepository(db);
     final currenciesRepo = CurrenciesRepository(db);
-    final budgetsRepo = BudgetsRepository(db);
     return StatsPage(
       db: db,
       accountsRepo: accountsRepo,
       currenciesRepo: currenciesRepo,
-      budgetsRepo: budgetsRepo,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import '../../stats/domain/time_series.dart';
+import '../../stats/domain/simple_stats.dart';
 
 class StatsService {
   final sqlite.Database db;
@@ -260,6 +261,95 @@ class StatsService {
       cursor = next;
     }
     return points;
+  }
+
+  /// Computes simple aggregate stats for a given [currencyCode] at [asOf].
+  /// - Spent this month/year across all accounts in currency.
+  /// - % budgets met: share of budget keys whose current-period spend <= budget.
+  /// - $ saved: sum of (budget - spend) for those met.
+  /// - E/S ratio for current month.
+  SimpleStats computeSimpleStats({
+    required String currencyCode,
+    DateTime? asOf,
+  }) {
+    final now = asOf ?? DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final nextMonth = DateTime(now.year, now.month + 1);
+    final yearStart = DateTime(now.year);
+
+    final spentMonth = _sumForKindCurrencyInRange(
+      kind: 'outbound',
+      currencyCode: currencyCode,
+      start: monthStart,
+      endExclusive: nextMonth,
+    );
+    final earnedMonth = _sumForKindCurrencyInRange(
+      kind: 'inbound',
+      currencyCode: currencyCode,
+      start: monthStart,
+      endExclusive: nextMonth,
+    );
+    final spentYear = _sumForKindCurrencyInRange(
+      kind: 'outbound',
+      currencyCode: currencyCode,
+      start: yearStart,
+      endExclusive: DateTime(now.year + 1),
+    );
+
+    // Budgets: evaluate latest version per (type_id, period) for this currency.
+    final latestBudgetRows = db.select(
+      '''
+      SELECT b.type_id, b.period, b.currency_code, b.amount
+      FROM budgets b
+      JOIN (
+        SELECT type_id, period, currency_code, MAX(datetime(effective_from)) AS eff
+        FROM budgets
+        WHERE currency_code = ?
+        GROUP BY type_id, period, currency_code
+      ) j
+      ON b.type_id = j.type_id AND b.period = j.period AND b.currency_code = j.currency_code
+         AND datetime(b.effective_from) = j.eff
+      WHERE b.currency_code = ?
+    ''',
+      [currencyCode, currencyCode],
+    );
+
+    int totalBudgets = 0;
+    int metBudgets = 0;
+    int savedMinor = 0;
+    for (final r in latestBudgetRows) {
+      totalBudgets += 1;
+      final typeId = r['type_id'] as int;
+      final period = r['period'] as String;
+      final amountMinor = r['amount'] as int;
+      final periodStart = _floorForBudget(period, now);
+      final periodEnd = _nextForBudget(period, periodStart);
+      final spent = _spentForKeyInRange(
+        typeId: typeId,
+        currencyCode: currencyCode,
+        start: periodStart,
+        endExclusive: periodEnd,
+      );
+      if (spent <= amountMinor) {
+        metBudgets += 1;
+        savedMinor += (amountMinor - spent);
+      }
+    }
+
+    final percentMet = totalBudgets == 0
+        ? 0.0
+        : (metBudgets * 100.0) / totalBudgets;
+
+    final ratio = spentMonth == 0 ? null : earnedMonth / spentMonth;
+
+    return SimpleStats(
+      currencyCode: currencyCode,
+      spentThisMonthMinor: spentMonth,
+      spentThisYearMinor: spentYear,
+      budgetsMetPercent: percentMet,
+      savedMinor: savedMinor,
+      earningSpendingRatio: ratio,
+    );
   }
 
   int _sumForKindCurrencyInRange({
