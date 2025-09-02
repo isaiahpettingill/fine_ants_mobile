@@ -108,6 +108,7 @@ class _CurrencyManagementPageState extends State<CurrencyManagementPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'currency-fab',
         onPressed: () async {
           final created = await showDialog<CurrencyRow>(
             context: context,

@@ -389,3 +389,117 @@ class AddRebalanceKindMigration implements Migration {
     );
   }
 }
+
+/// Adds budgets support for outbound transaction categories.
+/// Budgets are defined per transaction type, period and currency.
+class CreateBudgetsMigration implements Migration {
+  @override
+  int get id => 10;
+
+  @override
+  String get name => 'create_budgets_table';
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type_id INTEGER NOT NULL,
+        period TEXT NOT NULL CHECK(period IN ('week','month','year')),
+        currency_code TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(type_id, period, currency_code),
+        FOREIGN KEY(type_id) REFERENCES transaction_types(id)
+      );
+    ''');
+
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_budgets_type_period ON budgets(type_id, period)",
+    );
+  }
+}
+
+/// Adds versioning support to budgets by introducing an `effective_from`
+/// column and removing the unique constraint across (type_id, period,
+/// currency_code). Existing rows are migrated with `effective_from = created_at`.
+/// Idempotent: if column already exists, this migration is skipped.
+class AddBudgetVersionsMigration implements Migration {
+  @override
+  int get id => 12;
+
+  @override
+  String get name => 'add_budget_versions_column_and_rebuild';
+
+  bool _columnExists(sqlite.Database db, String table, String column) {
+    final result = db.select("PRAGMA table_info($table)");
+    for (final row in result) {
+      final name = row['name'] as String?;
+      if (name == column) return true;
+    }
+    return false;
+  }
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    // If budgets table doesn't exist yet, CreateBudgetsMigration will run
+    // before this one. If it exists and already has effective_from, skip.
+    final rows = db.select(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='budgets'",
+    );
+    if (rows.isEmpty) return;
+    if (_columnExists(db, 'budgets', 'effective_from')) return;
+
+    // Rebuild table with new schema including effective_from and without the
+    // previous UNIQUE(type_id, period, currency_code) constraint.
+    db.execute('''
+      CREATE TABLE budgets_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type_id INTEGER NOT NULL,
+        period TEXT NOT NULL CHECK(period IN ('week','month','year')),
+        currency_code TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        effective_from TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY(type_id) REFERENCES transaction_types(id)
+      );
+    ''');
+
+    // Carry over data, using created_at as effective_from for existing rows.
+    db.execute('''
+      INSERT INTO budgets_new (id, type_id, period, currency_code, amount, effective_from, created_at)
+      SELECT id, type_id, period, currency_code, amount, created_at, created_at
+      FROM budgets;
+    ''');
+
+    db.execute('DROP TABLE budgets');
+    db.execute('ALTER TABLE budgets_new RENAME TO budgets');
+
+    // Helpful index to quickly find latest per key
+    db.execute(
+      "CREATE INDEX IF NOT EXISTS idx_budgets_key_eff ON budgets(type_id, period, currency_code, effective_from DESC)",
+    );
+  }
+}
+
+/// Ensures all existing accounts have a currency code.
+///
+/// Older databases may have `accounts.currency_code` as NULL for rows created
+/// before the currency feature existed. Budgets filter spending by account
+/// currency, so NULL values cause matching to fail. This migration backfills
+/// any NULL or empty currency codes to 'USD'. It is idempotent.
+class BackfillAccountCurrencyMigration implements Migration {
+  @override
+  int get id => 11;
+
+  @override
+  String get name => 'backfill_account_currency_codes';
+
+  @override
+  Future<void> up(sqlite.Database db) async {
+    // Backfill NULL currency codes to 'USD'. Also handle empty strings just in case.
+    db.execute(
+      "UPDATE accounts SET currency_code = 'USD' WHERE currency_code IS NULL OR TRIM(currency_code) = ''",
+    );
+  }
+}

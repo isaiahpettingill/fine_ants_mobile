@@ -9,6 +9,7 @@ import '../../../utils/date_format.dart';
 import '../../accounts/domain/account_icon_choices.dart';
 import 'create_transaction_pages.dart';
 import '../../../services/balance_cache.dart';
+import '../../../widgets/pinned_header.dart';
 
 class TransactionsPage extends StatefulWidget {
   final AccountsRepository accountsRepo;
@@ -32,54 +33,48 @@ class TransactionsPage extends StatefulWidget {
 class _TransactionsPageState extends State<TransactionsPage> {
   late List<TransactionRow> _items;
   int? _selectedAccountId; // null = All
+  DateTime _monthAnchor = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
 
   @override
   void initState() {
     super.initState();
-    _items = widget.txRepo.listRecent();
+    _items = _loadForMonth(_monthAnchor);
   }
 
   Future<void> _refresh() async {
     widget.balanceCache?.reloadAll();
-    setState(() => _items = widget.txRepo.listRecent());
+    setState(() => _items = _loadForMonth(_monthAnchor));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transactions'),
-        actions: [
-          IconButton(
-            tooltip: 'Manage types',
-            icon: const Icon(Icons.category),
-            onPressed: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => _ManageTypesPage(typesRepo: widget.typesRepo),
-                ),
-              );
-              _refresh();
-            },
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
           slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: SliverPinnedHeader(
+                extent: 136, // month + account + padding, sized
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.max,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [_monthPagerRow(), _accountFilterRow()],
+                  ),
+                ),
+              ),
+            ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _accountFilterRow(),
-                    const SizedBox(height: 8),
-                    _balancesSummary(),
-                    const SizedBox(height: 8),
-                  ],
-                ),
+                padding: const EdgeInsets.only(left: 8, right: 8, top: 8),
+                child: _balancesSummary(),
               ),
             ),
             SliverList(
@@ -134,6 +129,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'transactions-fab',
         onPressed: () async {
           await showModalBottomSheet<void>(
             context: context,
@@ -225,6 +221,67 @@ class _TransactionsPageState extends State<TransactionsPage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  // Month paging UI
+  Widget _monthPagerRow() {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final label = '${months[_monthAnchor.month - 1]} ${_monthAnchor.year}';
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Previous month',
+          onPressed: () => setState(() {
+            _monthAnchor = DateTime(
+              _monthAnchor.year,
+              _monthAnchor.month - 1,
+              1,
+            );
+            _items = _loadForMonth(_monthAnchor);
+          }),
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Expanded(
+          child: Center(
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Next month',
+          onPressed: () => setState(() {
+            _monthAnchor = DateTime(
+              _monthAnchor.year,
+              _monthAnchor.month + 1,
+              1,
+            );
+            _items = _loadForMonth(_monthAnchor);
+          }),
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    );
+  }
+
+  List<TransactionRow> _loadForMonth(DateTime anchor) {
+    final start = DateTime(anchor.year, anchor.month, 1);
+    final end = DateTime(anchor.year, anchor.month + 1, 1);
+    return widget.txRepo.listByOccurredAtRange(start: start, endExclusive: end);
   }
 
   List<TransactionRow> _filtered() {
@@ -947,15 +1004,17 @@ class _NewTransactionDialogState extends State<_NewTransactionDialog> {
   }
 } */
 
-class _ManageTypesPage extends StatefulWidget {
+class ManageTransactionTypesPage extends StatefulWidget {
   final TransactionTypesRepository typesRepo;
-  const _ManageTypesPage({required this.typesRepo});
+  const ManageTransactionTypesPage({super.key, required this.typesRepo});
 
   @override
-  State<_ManageTypesPage> createState() => _ManageTypesPageState();
+  State<ManageTransactionTypesPage> createState() =>
+      _ManageTransactionTypesPageState();
 }
 
-class _ManageTypesPageState extends State<_ManageTypesPage> {
+class _ManageTransactionTypesPageState
+    extends State<ManageTransactionTypesPage> {
   late List<TransactionTypeRow> _items;
 
   @override
@@ -971,7 +1030,7 @@ class _ManageTypesPageState extends State<_ManageTypesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Types')),
+      appBar: AppBar(title: const Text('Manage transaction types')),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
@@ -1046,6 +1105,7 @@ class _ManageTypesPageState extends State<_ManageTypesPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'types-fab',
         onPressed: () async {
           final value = await showDialog<_TypeFormValue>(
             context: context,

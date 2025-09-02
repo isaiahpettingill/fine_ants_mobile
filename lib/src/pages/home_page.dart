@@ -13,6 +13,9 @@ import '../repositories/currencies_repository.dart';
 import '../repositories/transactions_repository.dart';
 import '../repositories/transaction_types_repository.dart';
 import '../features/transactions/presentation/transactions_page.dart';
+import '../features/stats/presentation/stats_page.dart';
+import '../features/budgets/presentation/budgets_page.dart';
+import '../repositories/budgets_repository.dart';
 import 'currency_management_page.dart';
 import '../services/balance_cache.dart';
 import '../utils/currency_format.dart';
@@ -34,6 +37,9 @@ class _HomePageState extends State<HomePage> {
   List<AccountRow> _accounts = const [];
   int _tabIndex = 0;
   BalanceCache? _balanceCache;
+  final ValueNotifier<BudgetSort> _budgetSort = ValueNotifier<BudgetSort>(
+    BudgetSort.name,
+  );
 
   @override
   void initState() {
@@ -56,6 +62,9 @@ class _HomePageState extends State<HomePage> {
         CreateTransactionsMigration(),
         SeedDefaultTransactionTypesMigration(),
         AddRebalanceKindMigration(),
+        CreateBudgetsMigration(),
+        AddBudgetVersionsMigration(),
+        BackfillAccountCurrencyMigration(),
       ]);
       final repo = AccountsRepository(db.db);
       final rows = repo.listAll();
@@ -95,6 +104,10 @@ class _HomePageState extends State<HomePage> {
         label: 'Accounts',
       ),
       NavigationDestination(icon: Icon(Icons.list_alt), label: 'Transactions'),
+      NavigationDestination(
+        icon: Icon(Icons.account_balance),
+        label: 'Budgets',
+      ),
       NavigationDestination(icon: Icon(Icons.insights), label: 'Stats'),
     ];
 
@@ -105,13 +118,14 @@ class _HomePageState extends State<HomePage> {
             children: [
               _buildAccountsTab(),
               _buildTransactionsTab(),
-              const Center(child: Text('Stats (coming soon)')),
+              _buildBudgetsTab(),
+              _buildStatsTab(),
             ],
           );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.account.name),
+        title: Text(_currentPageTitle),
         actions: [
           if (_showSyncButton)
             IconButton(
@@ -127,6 +141,27 @@ class _HomePageState extends State<HomePage> {
                   SnackBar(content: Text('Synced $count register(s)')),
                 );
               },
+            ),
+          if (_tabIndex == 2)
+            PopupMenuButton<BudgetSort>(
+              initialValue: _budgetSort.value,
+              onSelected: (v) => _budgetSort.value = v,
+              itemBuilder: (ctx) => const [
+                PopupMenuItem(
+                  value: BudgetSort.name,
+                  child: Text('Sort by name'),
+                ),
+                PopupMenuItem(
+                  value: BudgetSort.size,
+                  child: Text('Sort by size'),
+                ),
+                PopupMenuItem(
+                  value: BudgetSort.percent,
+                  child: Text('Sort by % spent'),
+                ),
+              ],
+              icon: const Icon(Icons.sort),
+              tooltip: 'Sort',
             ),
         ],
       ),
@@ -146,6 +181,10 @@ class _HomePageState extends State<HomePage> {
                     NavigationRailDestination(
                       icon: Icon(Icons.list_alt),
                       label: Text('Transactions'),
+                    ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.account_balance),
+                      label: Text('Budgets'),
                     ),
                     NavigationRailDestination(
                       icon: Icon(Icons.insights),
@@ -168,6 +207,7 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton: _repo == null || _tabIndex != 0
           ? null
           : FloatingActionButton(
+              heroTag: 'accounts-fab',
               onPressed: () async {
                 final created = await Navigator.of(context).push<bool>(
                   MaterialPageRoute(
@@ -188,6 +228,20 @@ Widget _buildAccountsTabFallback(String message) =>
     Center(child: Text(message));
 
 extension on _HomePageState {
+  String get _currentPageTitle {
+    switch (_tabIndex) {
+      case 0:
+        return 'Accounts';
+      case 1:
+        return 'Transactions';
+      case 2:
+        return 'Budgets';
+      case 3:
+      default:
+        return 'Stats';
+    }
+  }
+
   Widget _buildTransactionsTab() {
     final db = _appDb?.db;
     if (db == null) return _buildAccountsTabFallback(_status);
@@ -304,6 +358,33 @@ extension on _HomePageState {
       ),
     );
   }
+
+  Widget _buildBudgetsTab() {
+    final db = _appDb?.db;
+    if (db == null) return _buildAccountsTabFallback(_status);
+    return BudgetsPage(
+      budgetsRepo: BudgetsRepository(db),
+      typesRepo: TransactionTypesRepository(db),
+      currenciesRepo: CurrenciesRepository(db),
+      accountsRepo: AccountsRepository(db),
+      txRepo: TransactionsRepository(db),
+      sortNotifier: _budgetSort,
+    );
+  }
+
+  Widget _buildStatsTab() {
+    final db = _appDb?.db;
+    if (db == null) return _buildAccountsTabFallback(_status);
+    final accountsRepo = AccountsRepository(db);
+    final currenciesRepo = CurrenciesRepository(db);
+    final budgetsRepo = BudgetsRepository(db);
+    return StatsPage(
+      db: db,
+      accountsRepo: accountsRepo,
+      currenciesRepo: currenciesRepo,
+      budgetsRepo: budgetsRepo,
+    );
+  }
 }
 
 class _AccountBalancePill extends StatelessWidget {
@@ -417,6 +498,21 @@ extension _DrawerExt on _HomePageState {
                         MaterialPageRoute(
                           builder: (_) => CurrencyManagementPage(
                             repo: CurrenciesRepository(db),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.category),
+                    title: const Text('Manage transaction types'),
+                    onTap: () async {
+                      final db = _appDb?.db;
+                      if (db == null) return;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ManageTransactionTypesPage(
+                            typesRepo: TransactionTypesRepository(db),
                           ),
                         ),
                       );

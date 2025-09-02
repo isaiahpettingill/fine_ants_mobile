@@ -58,6 +58,83 @@ class TransactionsRepository {
     ];
   }
 
+  /// Lists outbound transactions for a given category (type) and currency
+  /// within the provided [start, endExclusive) date range. Results are
+  /// ordered by occurred_at desc then id desc.
+  List<TransactionRow> listOutboundByTypeCurrencyInRange({
+    required int typeId,
+    required String currencyCode,
+    required DateTime start,
+    required DateTime endExclusive,
+  }) {
+    final result = db.select(
+      '''
+      SELECT t.id, t.kind, t.account_id, t.from_account_id, t.to_account_id,
+             t.amount, t.out_amount, t.in_amount, t.type_id, t.description, t.occurred_at
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE t.kind = 'outbound'
+        AND t.type_id = ?
+        AND a.currency_code = ?
+        AND datetime(t.occurred_at) >= datetime(?)
+        AND datetime(t.occurred_at) < datetime(?)
+      ORDER BY datetime(t.occurred_at) DESC, t.id DESC
+      ''',
+      [
+        typeId,
+        currencyCode,
+        start.toIso8601String(),
+        endExclusive.toIso8601String(),
+      ],
+    );
+    return [
+      for (final row in result)
+        TransactionRow(
+          id: row['id'] as int,
+          kind: row['kind'] as String,
+          accountId: row['account_id'] as int?,
+          fromAccountId: row['from_account_id'] as int?,
+          toAccountId: row['to_account_id'] as int?,
+          amount: row['amount'] as int?,
+          outAmount: row['out_amount'] as int?,
+          inAmount: row['in_amount'] as int?,
+          typeId: row['type_id'] as int?,
+          description: row['description'] as String?,
+          occurredAt: DateTime.parse(row['occurred_at'] as String),
+        ),
+    ];
+  }
+
+  /// Lists all transactions that occurred within [start, endExclusive).
+  /// Ordered by occurred_at desc then id desc.
+  List<TransactionRow> listByOccurredAtRange({
+    required DateTime start,
+    required DateTime endExclusive,
+  }) {
+    final result = db.select(
+      'SELECT id, kind, account_id, from_account_id, to_account_id, amount, out_amount, in_amount, type_id, description, occurred_at '
+      'FROM transactions WHERE datetime(occurred_at) >= datetime(?) AND datetime(occurred_at) < datetime(?) '
+      'ORDER BY datetime(occurred_at) DESC, id DESC;',
+      [start.toIso8601String(), endExclusive.toIso8601String()],
+    );
+    return [
+      for (final row in result)
+        TransactionRow(
+          id: row['id'] as int,
+          kind: row['kind'] as String,
+          accountId: row['account_id'] as int?,
+          fromAccountId: row['from_account_id'] as int?,
+          toAccountId: row['to_account_id'] as int?,
+          amount: row['amount'] as int?,
+          outAmount: row['out_amount'] as int?,
+          inAmount: row['in_amount'] as int?,
+          typeId: row['type_id'] as int?,
+          description: row['description'] as String?,
+          occurredAt: DateTime.parse(row['occurred_at'] as String),
+        ),
+    ];
+  }
+
   int createInbound({
     required int accountId,
     required int amountMinor,
