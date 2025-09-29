@@ -54,7 +54,16 @@ class _MyAppState extends State<MyApp> {
           if (!hasAccount) {
             return const AccountSetupPage();
           }
-          return HomePage(account: AccountStore.instance.accounts.first);
+          final store = AccountStore.instance;
+          final accounts = store.accounts;
+          final lastId = store.lastOpenedAccountId;
+          final initial = lastId != null
+              ? accounts.firstWhere(
+                  (a) => a.id == lastId,
+                  orElse: () => accounts.first,
+                )
+              : accounts.first;
+          return HomePage(account: initial);
         },
       ),
     );

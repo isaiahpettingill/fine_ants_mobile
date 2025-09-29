@@ -2,6 +2,7 @@ import 'package:sqlite3/sqlite3.dart' as sqlite;
 
 import '../../stats/domain/time_series.dart';
 import '../../stats/domain/simple_stats.dart';
+import '../../stats/domain/account_totals.dart';
 
 class StatsService {
   final sqlite.Database db;
@@ -345,11 +346,41 @@ class StatsService {
     return SimpleStats(
       currencyCode: currencyCode,
       spentThisMonthMinor: spentMonth,
+      earnedThisMonthMinor: earnedMonth,
       spentThisYearMinor: spentYear,
       budgetsMetPercent: percentMet,
       savedMinor: savedMinor,
       earningSpendingRatio: ratio,
     );
+  }
+
+  /// Returns earned and spent totals per account for a given currency.
+  /// Only considers inbound/outbound transactions (excludes internal/rebalance).
+  List<AccountTotals> perAccountTotalsByCurrency({
+    required String currencyCode,
+  }) {
+    final rows = db.select(
+      '''
+      SELECT a.id AS account_id, a.name AS account_name,
+             COALESCE(SUM(CASE WHEN t.kind = 'inbound' THEN t.amount END), 0) AS earned,
+             COALESCE(SUM(CASE WHEN t.kind = 'outbound' THEN t.amount END), 0) AS spent
+      FROM accounts a
+      LEFT JOIN transactions t ON t.account_id = a.id AND t.kind IN ('inbound','outbound')
+      WHERE a.currency_code = ?
+      GROUP BY a.id, a.name
+      ORDER BY a.id DESC
+      ''',
+      [currencyCode],
+    );
+    return [
+      for (final r in rows)
+        AccountTotals(
+          accountId: r['account_id'] as int,
+          accountName: r['account_name'] as String,
+          earnedMinor: (r['earned'] as int?) ?? 0,
+          spentMinor: (r['spent'] as int?) ?? 0,
+        ),
+    ];
   }
 
   int _sumForKindCurrencyInRange({

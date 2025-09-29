@@ -44,6 +44,8 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    // Remember this register as the last opened
+    AccountStore.instance.setLastOpened(widget.account.id);
     _openAndMigrate();
   }
 
@@ -464,6 +466,8 @@ extension _DrawerExt on _HomePageState {
                         overflow: TextOverflow.ellipsis,
                       ),
                       onTap: () {
+                        // Persist the last opened register before switching
+                        AccountStore.instance.setLastOpened(reg.id);
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute(
                             builder: (_) => HomePage(account: reg),

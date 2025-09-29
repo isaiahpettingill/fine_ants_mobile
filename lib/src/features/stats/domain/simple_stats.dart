@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 class SimpleStats {
   final String currencyCode;
   final int spentThisMonthMinor;
+  final int earnedThisMonthMinor;
   final int spentThisYearMinor;
   final double budgetsMetPercent; // 0..100
   final int savedMinor; // sum of (budget - spent) where spent <= budget
@@ -13,6 +14,7 @@ class SimpleStats {
   const SimpleStats({
     required this.currencyCode,
     required this.spentThisMonthMinor,
+    required this.earnedThisMonthMinor,
     required this.spentThisYearMinor,
     required this.budgetsMetPercent,
     required this.savedMinor,

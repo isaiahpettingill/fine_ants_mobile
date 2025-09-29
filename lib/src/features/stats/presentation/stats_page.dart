@@ -6,6 +6,7 @@ import '../../../repositories/accounts_repository.dart';
 import '../../../repositories/currencies_repository.dart';
 import '../../../utils/currency_format.dart';
 import '../../stats/domain/simple_stats.dart';
+import '../../stats/domain/account_totals.dart';
 
 class StatsPage extends StatefulWidget {
   final sqlite.Database db;
@@ -55,6 +56,9 @@ class _StatsPageState extends State<StatsPage> {
         );
 
     final SimpleStats data = _stats.computeSimpleStats(currencyCode: curCode);
+    final List<AccountTotals> perAccount = _stats.perAccountTotalsByCurrency(
+      currencyCode: curCode,
+    );
 
     String fmtMinor(int m) => formatMinorUnits(m.abs(), curRow);
 
@@ -76,11 +80,15 @@ class _StatsPageState extends State<StatsPage> {
             child: ListView(
               children: [
                 _StatTile(
-                  title: 'Spent this month',
+                  title: 'Expense this month',
                   value: fmtMinor(data.spentThisMonthMinor),
                 ),
                 _StatTile(
-                  title: 'Spent this year',
+                  title: 'Income this month',
+                  value: fmtMinor(data.earnedThisMonthMinor),
+                ),
+                _StatTile(
+                  title: 'Expense this year',
                   value: fmtMinor(data.spentThisYearMinor),
                 ),
                 _StatTile(
@@ -90,11 +98,21 @@ class _StatsPageState extends State<StatsPage> {
                       ' saved ${fmtMinor(data.savedMinor)}',
                 ),
                 _StatTile(
-                  title: 'Earning:Spending ratio (month)',
+                  title: 'Income:Expense ratio (month)',
                   value: data.earningSpendingRatio == null
                       ? '∞ (no spend)'
                       : data.earningSpendingRatio!.toStringAsFixed(2),
                 ),
+                const SizedBox(height: 8),
+                const _SectionHeader(title: 'By account (income vs expense)'),
+                ...[
+                  for (final t in perAccount)
+                    _AccountTotalsTile(
+                      name: t.accountName,
+                      income: fmtMinor(t.earnedMinor),
+                      expense: fmtMinor(t.spentMinor),
+                    ),
+                ],
               ],
             ),
           ),
@@ -117,6 +135,45 @@ class _StatTile extends StatelessWidget {
         trailing: Text(
           value,
           style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+      child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+    );
+  }
+}
+
+class _AccountTotalsTile extends StatelessWidget {
+  final String name;
+  final String income;
+  final String expense;
+
+  const _AccountTotalsTile({
+    required this.name,
+    required this.income,
+    required this.expense,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        title: Text(name),
+        trailing: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [Text('Income: $income'), Text('Expense: $expense')],
         ),
       ),
     );

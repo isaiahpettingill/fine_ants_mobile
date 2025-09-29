@@ -13,6 +13,7 @@ class AccountStore {
 
   final String _rootDir;
   final List<Account> accounts = [];
+  String? lastOpenedAccountId;
 
   File get _storeFile => File('$_rootDir/accounts.json');
 
@@ -25,10 +26,12 @@ class AccountStore {
         accounts
           ..clear()
           ..addAll(list.map(Account.fromJson));
+        lastOpenedAccountId = data['lastOpenedAccountId'] as String?;
       }
     } catch (_) {
       // Start fresh on any parse error
       accounts.clear();
+      lastOpenedAccountId = null;
     }
   }
 
@@ -37,9 +40,18 @@ class AccountStore {
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-    final payload = {'accounts': accounts.map((a) => a.toJson()).toList()};
+    final payload = {
+      'accounts': accounts.map((a) => a.toJson()).toList(),
+      if (lastOpenedAccountId != null)
+        'lastOpenedAccountId': lastOpenedAccountId,
+    };
     await _storeFile.writeAsString(
       const JsonEncoder.withIndent('  ').convert(payload),
     );
+  }
+
+  Future<void> setLastOpened(String accountId) async {
+    lastOpenedAccountId = accountId;
+    await save();
   }
 }
